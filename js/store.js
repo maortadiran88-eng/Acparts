@@ -146,7 +146,7 @@
       const ups = plan[t].ups;
       for (let i = 0; i < ups.length; i += UP_CHUNK) {
         const chunk = ups.slice(i, i + UP_CHUNK);
-        await SB.upsert(t, chunk.map((x) => x.row), 'id');
+        await SB.upsert(t, chunk.map((x) => x.row));
         chunk.forEach((x) => snap[t].set(x.row.id, { j: x.j, parent: MAP[t].parent ? x.row[MAP[t].parent] : null }));
       }
     }
@@ -169,7 +169,7 @@
     }
     for (let i = 0; i < ups.length; i += CAT_CHUNK) {
       const chunk = ups.slice(i, i + CAT_CHUNK);
-      await SB.upsert('catalog', chunk.map((x) => x.row), 't_sku');
+      await SB.upsert('catalog', chunk.map((x) => x.row));
       chunk.forEach((x) => catSnap.set(x.row.t_sku, x.j));
     }
   }

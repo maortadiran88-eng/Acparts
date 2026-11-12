@@ -1,37 +1,68 @@
-/* לקוח Supabase קל (בלי ספריות חיצוניות): הזדהות, טבלאות (PostgREST) ואחסון קבצים (Storage). */
+/* לקוח קל למסד הנתונים (Supabase), בלי ספריות חיצוניות ובלי Supabase Auth.
+   הכניסה היא בסיסמה בלבד: הסיסמה נבדקת בתוך מסד הנתונים, שמחזיר אסימון (token) זמני.
+   כל הקריאות הן RPC לפונקציות sp_* (ראה sql/schema.sql). המפתח הציבורי לבדו לא נותן גישה לנתונים. */
 (function () {
   'use strict';
   const C = window.APP_CONFIG || {};
   const base = String(C.supabaseUrl || '').replace(/\/+$/, '');
   const KEY = C.supabaseKey || '';
-  const SK = 'sp-supabase-session';
-  let session = null;
-  let refreshing = null;
+  const SK = 'sp-session-v2';
+  const CHUNK = 393216;          // 384KB. מכפלה של 3, כדי ש-base64 של חלקים יתחבר נכון. חייב להתאים ל-sql/schema.sql
+  let session = null;            // { token, role, exp, remember }
 
   class SbError extends Error {
     constructor(message, code, status) { super(message); this.code = code || 'HTTP'; this.status = status || 0; }
   }
-  const netError = () => new SbError('אין חיבור לשרת. בדוק את החיבור לאינטרנט ונסה שוב.', 'NET', 0);
   const configured = () => !!(base && KEY && /^https?:\/\//.test(base));
   const safeJson = async (r) => { try { return await r.json(); } catch (e) { return null; } };
 
+  const KNOWN = {
+    sp_auth: ['AUTH', 'ההתחברות פגה. יש להיכנס מחדש.'],
+    sp_denied: ['DENIED', 'אין הרשאה לבצע את הפעולה הזו.'],
+    sp_bad_file: ['FILE', 'הקובץ אינו תקין או שסוגו אינו נתמך (PDF, JPG, PNG בלבד).'],
+    sp_too_big: ['SIZE', 'הקובץ גדול מדי.'],
+    sp_too_many: ['INPUT', 'יותר מדי רשומות בבקשה אחת.'],
+    sp_bad_input: ['INPUT', 'הנתונים שנשלחו אינם תקינים.'],
+    sp_bad_table: ['INPUT', 'הנתונים שנשלחו אינם תקינים.']
+  };
   async function httpError(r, fallback) {
     const body = await safeJson(r);
-    const code = body && (body.code || body.error_code || body.error);
-    const msg = body && (body.message || body.msg || body.error_description || (typeof body.error === 'string' ? body.error : ''));
-    if (r.status === 401) return new SbError('ההתחברות פגה. יש להיכנס מחדש.', 'AUTH', 401);
-    if (r.status === 403 || String(code) === '42501') return new SbError('אין הרשאה לבצע את הפעולה הזו.', 'DENIED', r.status);
-    if (String(code) === '23505') return new SbError('הערך כבר קיים (כפילות). ' + (msg || ''), 'DUP', r.status);
-    if (String(code) === '23503') return new SbError('הפעולה נכשלה: הרשומה קשורה לרשומה אחרת.', 'FK', r.status);
-    if (r.status === 413) return new SbError('הקובץ גדול מדי.', 'SIZE', r.status);
+    const code = String((body && (body.code || body.error_code)) || '');
+    const msg = String((body && (body.message || body.msg || body.error_description)) || '');
+    for (const k of Object.keys(KNOWN)) if (msg.indexOf(k) === 0) return new SbError(KNOWN[k][1], KNOWN[k][0], r.status);
+    if (r.status === 404 || code === 'PGRST202' || code === '42883') return new SbError('פונקציות מסד הנתונים לא נמצאו. יש להריץ את sql/schema.sql ב-Supabase.', 'CONFIG', r.status);
+    if (r.status === 401 || /api key|apikey|jwt/i.test(msg)) return new SbError('מפתח ה-Supabase ב-js/config.js אינו תקין.', 'CONFIG', r.status);
+    if (code === '23505') return new SbError('הערך כבר קיים (כפילות).', 'DUP', r.status);
+    if (code === '23503') return new SbError('הפעולה נכשלה: הרשומה קשורה לרשומה אחרת.', 'FK', r.status);
+    if (code === '23514') return new SbError('אחד השדות ריק או אינו תקין.', 'INPUT', r.status);
+    if (r.status === 413) return new SbError('הבקשה גדולה מדי.', 'SIZE', r.status);
     if (r.status === 429) return new SbError('יותר מדי בקשות. נסה שוב בעוד רגע.', 'RATE', r.status);
     return new SbError(fallback + (msg ? ': ' + msg : ' (' + r.status + ')'), 'HTTP', r.status);
   }
 
-  // ----- הזדהות -----
+  async function call(fn, args) {
+    let r;
+    try {
+      r = await fetch(`${base}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(args) });
+    } catch (e) { throw new SbError('אין חיבור לשרת. בדוק את החיבור לאינטרנט ונסה שוב.', 'NET', 0); }
+    return r;
+  }
+  // קריאה מאומתת (עם אסימון). מחזיר את תוכן ה-JSON.
+  async function rpc(fn, args, fallback) {
+    if (!session) throw new SbError('ההתחברות פגה. יש להיכנס מחדש.', 'AUTH', 401);
+    const r = await call(fn, Object.assign({ t: session.token }, args));
+    if (!r.ok) {
+      const e = await httpError(r, fallback || 'הפעולה נכשלה');
+      if (e.code === 'AUTH') clearLocal();
+      throw e;
+    }
+    return safeJson(r);
+  }
+
+  // ----- כניסה -----
   function persist() {
-    if (!session) return;
     try { localStorage.removeItem(SK); sessionStorage.removeItem(SK); } catch (e) { /* ignore */ }
+    if (!session) return;
     try { (session.remember ? localStorage : sessionStorage).setItem(SK, JSON.stringify(session)); } catch (e) { /* ignore */ }
   }
   function clearLocal() {
@@ -42,134 +73,88 @@
     for (const st of [sessionStorage, localStorage]) {
       try {
         const s = JSON.parse(st.getItem(SK) || 'null');
-        if (s && s.refresh_token && s.email) { session = s; return true; }
+        if (s && s.token && (s.role === 'admin' || s.role === 'viewer') && s.exp > Date.now()) { session = s; return true; }
       } catch (e) { /* ignore */ }
     }
+    clearLocal();
     return false;
   }
-  const roleOf = (email) => {
-    const e = String(email || '').toLowerCase();
-    if (e === String(C.adminEmail || '').toLowerCase()) return 'admin';
-    if (e === String(C.viewerEmail || '').toLowerCase()) return 'viewer';
-    return '';
-  };
-  function setSession(j, email) {
-    const role = roleOf(email);
-    session = {
-      access_token: j.access_token,
-      refresh_token: j.refresh_token,
-      expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
-      email,
-      remember: role === 'viewer' && C.rememberViewer !== false
-    };
-    persist();
-  }
-  async function rawFetch(path, init) {
-    try { return await fetch(base + path, init); } catch (e) { throw netError(); }
-  }
-  // true = נכנס, false = סיסמה שגויה, חריגה = בעיה אחרת
-  async function passwordGrant(email, password) {
-    const r = await rawFetch('/auth/v1/token?grant_type=password', {
-      method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
-    });
-    if (r.ok) { setSession(await r.json(), email); return true; }
-    const body = await safeJson(r);
-    const code = body && (body.error_code || body.code || body.error);
-    if (r.status === 400 && (code === 'invalid_credentials' || code === 'invalid_grant' || code === 400 || /invalid login/i.test((body && (body.msg || body.message || body.error_description)) || ''))) return false;
-    if (code === 'email_not_confirmed') throw new SbError('המשתמש קיים אבל לא מאושר. ב-Supabase יש ליצור משתמשים עם Auto Confirm.', 'CONFIG', 400);
-    if (r.status === 429) throw new SbError('יותר מדי ניסיונות כניסה. נסה שוב בעוד כמה דקות.', 'RATE', 429);
-    if (r.status === 401 || r.status === 403) throw new SbError('מפתח ה-Supabase ב-js/config.js אינו תקין.', 'CONFIG', r.status);
-    throw await httpError(r, 'ההתחברות נכשלה');
-  }
-  // מנסה את הסיסמה מול חשבון המנהל ואז חשבון הצפייה. מחזיר 'admin' | 'viewer' | null
-  async function loginWithPassword(pw) {
+  // מחזיר 'admin' | 'viewer' | null (סיסמה שגויה). חורג בחסימה, בהגדרה חסרה ובשגיאות רשת.
+  async function login(pw) {
     if (!configured()) throw new SbError('חיבור ה-Supabase לא הוגדר בקובץ js/config.js', 'CONFIG', 0);
-    if (await passwordGrant(C.adminEmail, pw)) return 'admin';
-    if (await passwordGrant(C.viewerEmail, pw)) return 'viewer';
+    const r = await call('sp_login', { pw });
+    if (!r.ok) throw await httpError(r, 'ההתחברות נכשלה');
+    const j = await safeJson(r);
+    if (j && j.ok) {
+      session = { token: j.token, role: j.role, exp: Date.now() + (j.expires_in || 3600) * 1000 - 60000, remember: j.role === 'viewer' && C.rememberViewer !== false };
+      persist();
+      return j.role;
+    }
+    if (j && j.reason === 'locked') {
+      const m = Math.max(1, Math.ceil((j.wait || 60) / 60));
+      throw new SbError(`יותר מדי ניסיונות שגויים. נסה שוב בעוד ${m} דקות.`, 'LOCKED', 429);
+    }
+    if (j && j.reason === 'setup') throw new SbError('עדיין לא הוגדרו סיסמאות. יש להריץ את sql/set-passwords.sql ב-Supabase.', 'CONFIG', 0);
     return null;
   }
-  function refresh() {
-    if (!session) return Promise.reject(new SbError('לא מחובר', 'AUTH', 401));
-    if (!refreshing) {
-      const email = session.email, rt = session.refresh_token;
-      refreshing = (async () => {
-        const r = await rawFetch('/auth/v1/token?grant_type=refresh_token', {
-          method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: rt })
-        });
-        if (!r.ok) { if (r.status === 400 || r.status === 401 || r.status === 403) clearLocal(); throw new SbError('ההתחברות פגה. יש להיכנס מחדש.', 'AUTH', 401); }
-        setSession(await r.json(), email);
-      })().finally(() => { refreshing = null; });
-    }
-    return refreshing;
-  }
-  async function ensureFresh() {
-    if (session && session.expires_at - Math.floor(Date.now() / 1000) < 60) await refresh();
-  }
   async function signOut() {
-    const tok = session && session.access_token;
+    const t = session && session.token;
     clearLocal();
-    if (tok) { try { await fetch(base + '/auth/v1/logout', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + tok } }); } catch (e) { /* best effort */ } }
+    if (t) { try { await call('sp_logout', { t }); } catch (e) { /* best effort */ } }
   }
 
-  // ----- בקשות מאומתות -----
-  async function api(path, init, retry) {
-    if (!session) throw new SbError('ההתחברות פגה. יש להיכנס מחדש.', 'AUTH', 401);
-    await ensureFresh();
-    const o = Object.assign({}, init || {});
-    o.headers = Object.assign({ apikey: KEY, Authorization: 'Bearer ' + session.access_token }, o.headers || {});
-    let r;
-    try { r = await fetch(base + path, o); } catch (e) { throw netError(); }
-    if (r.status === 401 && retry !== false) { await refresh(); return api(path, init, false); }
-    return r;
-  }
-
-  // ----- טבלאות -----
-  const quote = (v) => '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-  // עמודים באמצעות limit/offset וספירה ב-Prefer (כמו הספרייה הרשמית), בלי כותרות מותאמות שעלולות להיחסם ב-CORS
+  // ----- נתונים -----
   async function select(table, o) {
     const from = (o && o.from) || 0, to = o && o.to != null ? o.to : 999;
-    const r = await api(`/rest/v1/${table}?select=*&order=${encodeURIComponent(o.order)}.asc&limit=${to - from + 1}&offset=${from}`, { headers: { Prefer: 'count=exact' } });
-    if (!r.ok) throw await httpError(r, 'טעינת הנתונים נכשלה');
-    const rows = await r.json();
-    const m = /\/(\d+)$/.exec(r.headers.get('Content-Range') || '');
-    return { rows, total: m ? Number(m[1]) : null };
+    const j = await rpc('sp_read', { tbl: table, off: from, lim: to - from + 1 }, 'טעינת הנתונים נכשלה');
+    return { rows: (j && j.rows) || [], total: j && j.total != null ? Number(j.total) : null };
   }
-  async function upsert(table, rows, conflict) {
-    if (!rows.length) return;
-    const r = await api(`/rest/v1/${table}?on_conflict=${encodeURIComponent(conflict)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows)
-    });
-    if (!r.ok) throw await httpError(r, 'השמירה נכשלה');
+  async function upsert(table, rows) {
+    if (rows.length) await rpc('sp_upsert', { tbl: table, rows }, 'השמירה נכשלה');
   }
   async function remove(table, col, ids) {
-    if (!ids.length) return;
-    const r = await api(`/rest/v1/${table}?${col}=in.(${encodeURIComponent(ids.map(quote).join(','))})`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
-    if (!r.ok) throw await httpError(r, 'המחיקה נכשלה');
+    if (ids.length) await rpc('sp_delete', { tbl: table, ids }, 'המחיקה נכשלה');
   }
 
-  // ----- אחסון קבצים -----
-  const objUrl = (path) => `/storage/v1/object/${C.bucket}/${path.split('/').map(encodeURIComponent).join('/')}`;
+  // ----- קבצים (נשמרים במסד, בחלקים) -----
+  const blobToB64 = (blob) => new Promise((res, rej) => {
+    const f = new FileReader();
+    f.onload = () => res(String(f.result).slice(String(f.result).indexOf(',') + 1));
+    f.onerror = () => rej(new SbError('קריאת הקובץ נכשלה', 'FILE', 0));
+    f.readAsDataURL(blob);
+  });
+  const b64ToBytes = (b64) => { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+  async function withRetry(fn) {
+    try { return await fn(); } catch (e) { if (e && e.code === 'NET') return fn(); throw e; }
+  }
   async function putFile(path, blob) {
-    const body = await blob.arrayBuffer();   // גוף בינארי רגיל + Content-Type (כמו העלאת ArrayBuffer בספרייה הרשמית)
-    const r = await api(objUrl(path), { method: 'POST', headers: { 'Content-Type': blob.type || 'application/octet-stream', 'x-upsert': 'true' }, body });
-    if (!r.ok) throw await httpError(r, 'העלאת הקובץ נכשלה');
+    const total = Math.max(1, Math.ceil(blob.size / CHUNK));
+    for (let i = 0; i < total; i++) {
+      const b64 = await blobToB64(blob.slice(i * CHUNK, (i + 1) * CHUNK));
+      await withRetry(() => rpc('sp_file_put', { key: path, mime: blob.type, idx: i, total, b64 }, 'העלאת הקובץ נכשלה'));
+    }
   }
   async function getFile(path) {
-    const r = await api(objUrl(path).replace('/object/', '/object/authenticated/'));
-    if (r.status === 404 || r.status === 400) return null;
-    if (!r.ok) throw await httpError(r, 'הורדת הקובץ נכשלה');
-    return r.blob();
+    const first = await withRetry(() => rpc('sp_file_get', { key: path, idx: 0 }, 'הורדת הקובץ נכשלה'));
+    if (!first) return null;
+    const parts = new Array(first.total);
+    parts[0] = b64ToBytes(first.b64);
+    let next = 1;
+    await Promise.all(Array.from({ length: Math.min(3, first.total - 1) }, async () => {
+      while (next < first.total) {
+        const i = next++;
+        const j = await withRetry(() => rpc('sp_file_get', { key: path, idx: i }, 'הורדת הקובץ נכשלה'));
+        if (!j) throw new SbError('הקובץ השתנה בזמן ההורדה. נסה שוב.', 'FILE', 0);
+        parts[i] = b64ToBytes(j.b64);
+      }
+    }));
+    return new Blob(parts, { type: first.mime });
   }
-  async function delFile(path) {
-    const r = await api(objUrl(path), { method: 'DELETE' });
-    if (r.ok || r.status === 404 || r.status === 400) return;
-    throw await httpError(r, 'מחיקת הקובץ נכשלה');
-  }
+  async function delFile(path) { await rpc('sp_file_del', { key: path }, 'מחיקת הקובץ נכשלה'); }
 
   window.SB = {
-    configured, restore, clearLocal, loginWithPassword, signOut, refresh,
-    role: () => (session ? roleOf(session.email) : ''),
-    email: () => (session ? session.email : ''),
+    configured, restore, clearLocal, login, loginWithPassword: login, signOut,
+    role: () => (session ? session.role : ''),
     select, upsert, remove, putFile, getFile, delFile, SbError
   };
 })();

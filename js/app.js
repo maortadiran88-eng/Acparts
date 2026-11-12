@@ -136,7 +136,7 @@
     if (!pw) return;
     btn.disabled = true; $('#loginErr').textContent = '';
     try {
-      const r = await SB.loginWithPassword(pw);
+      const r = await SB.login(pw);
       if (!r) { $('#loginErr').textContent = 'סיסמה שגויה'; $('#pw').select(); return; }
       role = r;
       $('#pw').value = '';
@@ -1079,7 +1079,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || role !== 'viewer') return;
     if (Date.now() - Store.lastLoad < (CFG.autoRefreshMinutes || 3) * 60000 || $('.modal')) return;
-    Store.reload().then(render).catch(() => { /* נסה שוב בפעם הבאה */ });
+    Store.reload().then(render).catch((e) => { if (e && e.code === 'AUTH') { toast('ההתחברות פגה. יש להיכנס מחדש.', 'err'); logout(); } });
   });
 
   // ===== התחלה =====
