@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מרכז חלקי חילוף</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="login" class="loginGate">
+  <form id="loginForm" class="loginCard" autocomplete="off">
+    <div class="loginIcon">ח</div>
+    <h1>מרכז חלקי חילוף</h1>
+    <p>הזן סיסמה כדי להיכנס למערכת</p>
+    <label for="pw">סיסמה</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <button type="submit" class="btn primary">כניסה</button>
+    <div id="loginErr" class="loginErr" role="alert"></div>
+  </form>
+</div>
+<div id="loading" class="loadingGate" hidden><div class="spinner"></div><div id="loadMsg">טוען נתונים מהענן…</div></div>
+
+<div id="syncbar" class="syncbar" hidden role="status"></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin" id="topin"></div></header>
+  <main id="view" class="wrap"></main>
+</div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script src="js/config.js"></script>
+<script src="js/sheetio.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/store.js"></script>
+<script src="js/importer.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
