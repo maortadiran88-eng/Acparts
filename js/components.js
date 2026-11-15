@@ -124,20 +124,6 @@ function TechRequestBox({loginRole}){
   );
 }
 
-// ══════════ TECH SITE LINK ══════════
-function TechSiteLink(){
-  return(
-    <div style={{marginBottom:16}}>
-      <button onClick={()=>{if(confirm('לעבור לאתר הטכנאים?\nhttps://maortadiran88-eng.github.io/GREE/'))window.open('https://maortadiran88-eng.github.io/GREE/','_blank');}}
-        style={{width:'100%',padding:'11px 16px',background:'var(--card)',border:'2px solid #1565c030',borderRadius:12,cursor:'pointer',display:'flex',alignItems:'center',gap:10,boxShadow:'0 1px 4px var(--shadow)',color:'var(--text)',fontSize:13,fontWeight:'bold'}}>
-        <span style={{fontSize:20}}>🔧</span>
-        <span style={{flex:1,textAlign:'right'}}>אתר הטכנאים</span>
-        <span style={{color:'#1565c0',fontSize:12}}>→ לחץ לכניסה</span>
-      </button>
-    </div>
-  );
-}
-
 // ══════════ HOME SCREEN ══════════
 function HomeScreen({data,onNav,recent,favorites,onToggleFav,loginRole,reports,techRequests,alerts,onOpenSidebar,query,setQuery,onOpenBrand,results,canSeeHidden}){
   const visBrands=data.brands.filter(b=>canSeeHidden||!b.hidden);
@@ -244,7 +230,6 @@ function HomeScreen({data,onNav,recent,favorites,onToggleFav,loginRole,reports,t
       </Reveal>
 
       <TechRequestBox loginRole={loginRole}/>
-      <TechSiteLink/>
     </div>
   );
 }
