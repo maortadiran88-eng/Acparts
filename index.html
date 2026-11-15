@@ -73,42 +73,47 @@ body{
   --glass-border:#e3dccd;
 }
 
-/* ─── Dark mode — Midnight Tech ──────────── */
+/* ─── Dark mode — Deep Navy (כחול כהה) ───────────────────────────────────── */
 .dark{
-  --bg:#16140f;
-  --card:#201d16;
-  --card2:#292519;
-  --text:#f5efe2;
-  --text2:#d8d0bd;
-  --sub:#9a917c;
-  --border:#383325;
-  --border2:#4d4632;
-  --inp:#f5efe2;
-  --row1:#201d16;
-  --row2:#262218;
-  --hi:#4a3b10;
-  --sel:#1f3319;
-  --sidebar:#201d16;
-  --ibg:#292519;
+  --bg:#091428;
+  --card:#13264d;
+  --card2:#1b3262;
+  --text:#eaf0ff;
+  --text2:#c8d6f2;
+  --sub:#a2b6dc;
+  --border:#2a4580;
+  --border2:#3d5fa3;
+  --inp:#eaf0ff;
+  --row1:#13264d;
+  --row2:#172c58;
+  --hi:#4f4313;
+  --sel:#173f6b;
+  --sidebar:#102146;
+  --ibg:#0d1c3a;
   --shadow:rgba(0,0,0,.45);
   --shadow2:rgba(0,0,0,.65);
 
   --primary:#ff8a3d;
   --primary-dark:#f0721c;
-  --primary-light:#3a2412;
+  --primary-light:#26376a;
   --accent:#ff8a3d;
-  --accent-light:#3a2412;
+  --accent-light:#26376a;
   --cyan:#ffc247;
   --cyan-glow:rgba(255,138,61,.35);
   --green:#3fcf76;
-  --green-bg:#0f2a1c;
+  --green-bg:#0e3a33;
   --orange:#ffb74d;
-  --orange-bg:#332309;
-  --red:#ff6b6b;
-  --red-bg:#3a1414;
+  --orange-bg:#3d3216;
+  --red:#ff7b7b;
+  --red-bg:#4a1f33;
 
-  --glass-bg:rgba(32,29,22,.92);
-  --glass-border:#383325;
+  /* צבעים לטקסט על רקע כחול כהה, וצבע הטקסט על כפתורים מלאים (כתום/ירוק/אדום בהירים) */
+  --blue-ink:#8cc2ff;
+  --purple-ink:#dba8ff;
+  --on-fill:#0b1226;
+
+  --glass-bg:rgba(19,38,77,.92);
+  --glass-border:#2a4580;
 }
 
 /* ─── Scrollbar ───────────────────────────── */
@@ -352,25 +357,26 @@ table{border-collapse:separate;border-spacing:0}
 /* ═════ Workshop-catalog skin: warm paper, ink, safety-orange, crisp edges ═════ */
 :root{--radius-sm:4px;--radius-md:6px;--radius-lg:8px;--radius-xl:10px;--mono:'IBM Plex Mono',ui-monospace,Consolas,monospace}
 body{background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:28px 28px;background-attachment:fixed;background-color:var(--bg)}
-.dark body,body.dark{background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px)}
+.dark body,body.dark{background-image:linear-gradient(rgba(140,180,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(140,180,255,.06) 1px,transparent 1px)}
 .glass,.toolbar-panel{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;border:1.5px solid var(--text)}
 .dark .glass,.dark .toolbar-panel{border-color:var(--border2)}
 .card-md,.card-sm,.brand-card,.menu-panel{box-shadow:3px 3px 0 var(--border2);border:1.5px solid var(--text)}
-.dark .card-md,.dark .card-sm,.dark .brand-card,.dark .menu-panel{border-color:var(--border2);box-shadow:3px 3px 0 #000}
+.dark .card-md,.dark .card-sm,.dark .brand-card,.dark .menu-panel{border-color:var(--border2);box-shadow:3px 3px 0 #040b1c}
 .brand-card:hover,.bento-tile:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--primary);border-color:var(--text)}
 .bento-tile{border-radius:var(--radius-lg);transform:none!important}
 .bento-tile .glow-layer{display:none}
 .btn,.tool-btn,.hdr-btn,.icon-btn,.menu-item{border-radius:var(--radius-md)}
 .btn-primary,.tool-btn.active,.hdr-btn.on{background:var(--primary);color:#fff;border:1.5px solid var(--text);box-shadow:2px 2px 0 var(--text)}
-.dark .btn-primary,.dark .tool-btn.active,.dark .hdr-btn.on{color:#1a1208;border-color:#000;box-shadow:2px 2px 0 #000}
+.dark .btn-primary,.dark .tool-btn.active,.dark .hdr-btn.on{color:var(--on-fill);border-color:#040b1c;box-shadow:2px 2px 0 #040b1c}
 .btn-primary:hover,.tool-btn.active:hover{background:var(--primary-dark);color:#fff}
+.dark .btn-primary:hover,.dark .tool-btn.active:hover{color:var(--on-fill)}
 .btn-primary:active{transform:translate(2px,2px);box-shadow:none}
 .tc-page-title,.tc-section-title{letter-spacing:0;font-weight:700}
 .tc-page-title{border-inline-start:6px solid var(--primary);padding-inline-start:12px}
 .tc-table thead th{background:var(--text);color:var(--card);text-transform:none;font-size:12px;letter-spacing:.3px;border-bottom:0}
 .dark .tc-table thead th{background:var(--card2);color:var(--text);border-bottom:2px solid var(--primary)}
 .tc-table thead th input{color:inherit}
-  .tc-table tbody td{font-variant-numeric:tabular-nums}
+.tc-table tbody td{font-variant-numeric:tabular-nums}
 .tc-table tbody td:nth-child(n+4){font-family:var(--mono);font-size:12.5px}
 .tc-meta,.tt::after{font-family:var(--mono)}
 .hero-search{border:1.5px solid var(--text);border-radius:var(--radius-md);box-shadow:4px 4px 0 var(--border2)}
@@ -380,6 +386,60 @@ body{background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-
 .login-bg,.dark .login-bg{background:var(--bg)}
 .login-blob-a,.login-blob-b,.login-blob-c,.dark .login-blob-a,.dark .login-blob-b,.dark .login-blob-c{background:var(--primary);opacity:.12!important;border-radius:0!important;filter:none!important}
 input:focus,textarea:focus,select:focus{border-radius:var(--radius-md)}
+
+/* ═════ מצב כהה: צבעים קבועים שכתובים בתוך הרכיבים ממופים לצבעי הכחול הכהה (מצב בהיר נשאר ללא שינוי) ═════ */
+/* תפריט הצד: חיצי הזזה ↑↓, דגם נבחר, כפתורי + וצבע המותג בטקסט. נכתבים לפי המבנה כדי שיעבדו עם כל צבע מותג */
+.dark aside button[aria-label^="הזז"]:not(:disabled):not([style*="solid rgb(255, 255, 255)"]){color:#cfe1ff!important;border-color:#7ea6e0!important}
+.dark aside div[style*="border-right: 3px solid rgb("]{background:rgba(110,160,255,.24)!important;color:#fff!important}
+.dark aside button[style*="line-height: 1"][style*="font-weight: bold"]:not([aria-label]),.dark aside button[style*="border-top: 1px dashed"][style*="width: 100%"]{color:var(--blue-ink)!important}
+.dark div[style*="font-size: 11.5px"][style*="font-weight: 700"]:not([style*="text-align"]){color:var(--blue-ink)!important}
+/* טקסט על כפתור מלא בצבע בהיר (כתום/ירוק/אדום): טקסט כהה במקום לבן */
+.dark [style*="background: var(--primary)"],
+.dark [style*="background: var(--accent)"],
+.dark [style*="background: var(--orange)"],
+.dark [style*="background: var(--red)"],
+.dark [style*="background: var(--green)"],
+.dark [style*="background: var(--cyan)"]{color:var(--on-fill)!important}
+.dark [style*="background: rgb(154, 165, 177)"]{color:var(--on-fill)!important}
+/* כפתור מלא ברקע var(--sub) (כמו "בחר הכל"): טקסט כהה */
+.dark [style*="background: var(--sub)"]{color:var(--on-fill)!important}
+/* שדה החיפוש שבכותרת כתוב לבן קבוע: במצב כהה הופך לשדה כחול כהה */
+.dark [style*="background: rgba(255, 255, 255, 0.93)"]{background:var(--ibg)!important;color:var(--inp)!important;box-shadow:0 0 0 1.5px var(--border2) inset!important}
+.dark input::placeholder,.dark textarea::placeholder{color:#8ea3cc;opacity:1}
+/* ירוק ווצאפ וירוק/כתום מלאים: טקסט כהה במקום לבן. כפתור לבן עם טקסט ירוק מקבל ירוק כהה */
+.dark [style*="background: rgb(37, 211, 102)"],.dark [style*="background: rgb(37, 211, 102)"] *,
+.dark [style*="background: rgb(76, 175, 80)"],.dark [style*="background: rgb(255, 152, 0)"]{color:var(--on-fill)!important}
+.dark [style*="background: rgb(255, 255, 255)"][style*="color: rgb(37, 211, 102)"]{color:#0b6b35!important}
+/* טקסט בצבעים קבועים */
+.dark [style*=" color: rgb(21, 101, 192)"],.dark [style^="color: rgb(21, 101, 192)"]{color:var(--blue-ink)!important}
+.dark [style*=" color: rgb(26, 86, 160)"],.dark [style^="color: rgb(26, 86, 160)"]{color:var(--blue-ink)!important}
+.dark [style*=" color: rgb(16, 67, 160)"],.dark [style^="color: rgb(16, 67, 160)"]{color:var(--blue-ink)!important}
+.dark [style*=" color: rgb(123, 31, 162)"],.dark [style^="color: rgb(123, 31, 162)"]{color:var(--purple-ink)!important}
+.dark [style*=" color: rgb(229, 57, 53)"],.dark [style^="color: rgb(229, 57, 53)"]{color:var(--red)!important}
+.dark [style*=" color: rgb(198, 40, 40)"],.dark [style^="color: rgb(198, 40, 40)"]{color:var(--red)!important}
+.dark [style*=" color: rgb(46, 125, 50)"],.dark [style^="color: rgb(46, 125, 50)"]{color:#7be09a!important}
+.dark [style*=" color: rgb(27, 94, 32)"],.dark [style^="color: rgb(27, 94, 32)"]{color:#7be09a!important}
+.dark [style*=" color: rgb(230, 81, 0)"],.dark [style^="color: rgb(230, 81, 0)"]{color:#ffa766!important}
+.dark [style*=" color: rgb(245, 124, 0)"],.dark [style^="color: rgb(245, 124, 0)"]{color:#ffb066!important}
+.dark [style*=" color: rgb(184, 134, 11)"],.dark [style^="color: rgb(184, 134, 11)"]{color:#f0c860!important}
+.dark [style*=" color: rgb(121, 85, 72)"],.dark [style^="color: rgb(121, 85, 72)"]{color:#d9bcae!important}
+.dark [style*=" color: rgb(84, 110, 122)"],.dark [style^="color: rgb(84, 110, 122)"]{color:#b3c6d6!important}
+.dark [style*=" color: rgb(96, 125, 139)"],.dark [style^="color: rgb(96, 125, 139)"]{color:#b8cad6!important}
+/* רקעים בהירים קבועים */
+.dark [style*="background: rgb(227, 242, 253)"],.dark [style*="background-color: rgb(227, 242, 253)"]{background:#1a3a6e!important}
+.dark [style*="background: rgb(232, 245, 233)"],.dark [style*="background-color: rgb(232, 245, 233)"]{background:#12403c!important}
+.dark [style*="background: rgb(255, 248, 225)"],.dark [style*="background-color: rgb(255, 248, 225)"]{background:#3b3517!important}
+.dark [style*="background: rgb(255, 235, 238)"],.dark [style*="background-color: rgb(255, 235, 238)"]{background:#4a2234!important}
+.dark [style*="background: rgb(243, 229, 245)"],.dark [style*="background-color: rgb(243, 229, 245)"]{background:#38244f!important}
+.dark [style*="background: rgb(255, 243, 224)"],.dark [style*="background-color: rgb(255, 243, 224)"]{background:#40341a!important}
+.dark [style*="background: rgb(255, 243, 243)"],.dark [style*="background-color: rgb(255, 243, 243)"]{background:#4a2234!important}
+.dark [style*="background: rgb(245, 245, 245)"],.dark [style*="background-color: rgb(245, 245, 245)"]{background:#1b3262!important}
+.dark [style*="background: rgb(236, 239, 241)"],.dark [style*="background-color: rgb(236, 239, 241)"]{background:#1b3262!important}
+.dark [style*="background: rgb(249, 250, 251)"],.dark [style*="background-color: rgb(249, 250, 251)"]{background:#172c58!important}
+.dark [style*="background: rgb(229, 231, 235)"],.dark [style*="background-color: rgb(229, 231, 235)"]{background:#2a4580!important}
+.dark [style*="background: rgb(200, 230, 201)"],.dark [style*="background-color: rgb(200, 230, 201)"]{background:#1d5a48!important}
+.dark [style*="background: rgb(165, 214, 167)"],.dark [style*="background-color: rgb(165, 214, 167)"]{background:#2c6e55!important}
+.dark [style*="background: rgb(255, 224, 130)"],.dark [style*="background-color: rgb(255, 224, 130)"]{background:#6b5a16!important}
 </style>
 </head>
 <body>
