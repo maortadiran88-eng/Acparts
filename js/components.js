@@ -245,7 +245,7 @@ function MoveBtns({onUp,onDown,canUp,canDown,color,what}){
   return <span onClick={e=>e.stopPropagation()} style={{display:'inline-flex',gap:2,alignItems:'center',flexShrink:0,margin:'0 3px'}}>{btn(canUp,onUp,'↑','הזז למעלה')}{btn(canDown,onDown,'↓','הזז למטה')}</span>;
 }
 
-function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav,onNav,onAddModel,onDelModel,onAddCat,onEditCat,onDelCat,onAddSubCat,onEditSubCat,onDelSubCat,sidebarFilter,compareList,onToggleCompare,canMoveUp,canMoveDown,onMoveBrand,onMoveCat,onMoveSub}){
+function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav,onNav,onAddModel,onDelModel,onAddCat,onEditCat,onDelCat,onAddSubCat,onEditSubCat,onDelSubCat,sidebarFilter,compareList,onToggleCompare,canMoveUp,canMoveDown,onMoveBrand,onMoveCat,onMoveSub,onMoveModel}){
   const[open,setOpen]=useState(false);const[openCats,setOpenCats]=useState({});const[openSubs,setOpenSubs]=useState({});
   const[addingMod,setAddingMod]=useState(null);const[newModName,setNewModName]=useState('');
   const[editCat,setEditCat]=useState(null);const[addingCat,setAddingCat]=useState(false);const[newCatName,setNewCatName]=useState('');
@@ -306,6 +306,10 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
 
   const renderModelRow=(m,cid,scid)=>{
     const inCompare=compareList&&compareList.some(x=>x.mid===m.id);
+    // המיקום של הדגם ברשימה המלאה (קטגוריה או תת-קטגוריה), כדי לדעת אם אפשר לזוז למעלה/למטה
+    const catObj=brand.categories.find(x=>x.id===cid);
+    const siblings=scid?((catObj?.subCategories||[]).find(x=>x.id===scid)?.models||[]):(catObj?.models||[]);
+    const mi=siblings.findIndex(x=>x.id===m.id);
     return(
       <div key={m.id} style={{display:'flex',alignItems:'center',borderBottom:'1px solid var(--border)'}}>
         <div onClick={()=>onNav(brand.id,cid,m.id,scid)}
@@ -317,6 +321,7 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
             <div style={{fontSize:10,color:'#7b1fa2',marginTop:2,fontWeight:'bold'}}>≡ {(m.synonyms||[]).filter(s=>s.toLowerCase().includes(sidebarFilter.toLowerCase())).join(', ')}</div>
           )}
         </div>
+        {admin&&!sidebarFilter&&onMoveModel&&mi>=0&&<MoveBtns color={brand.color} what={'את הדגם '+m.name} canUp={mi>0} canDown={mi<siblings.length-1} onUp={()=>onMoveModel(cid,scid,m.id,-1)} onDown={()=>onMoveModel(cid,scid,m.id,1)}/>}
         {onToggleCompare&&(
           <button onClick={()=>onToggleCompare(brand.id,cid,m.id)} title={inCompare?'הסר מהשוואה':'הוסף להשוואה'}
             style={{background:'none',border:'none',fontSize:14,cursor:'pointer',padding:'0 3px',color:inCompare?'#e65100':'var(--sub)',fontWeight:'bold'}}>

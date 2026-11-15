@@ -683,6 +683,9 @@ function App() {
                   canMoveDown={data.brands.findIndex(x=>x.id===b.id)<data.brands.length-1}
                   onMoveBrand={dir=>mut(d=>({...d,brands:moveById(d.brands,b.id,dir)}))}
                   onMoveCat={(cid,dir)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:moveById(bb.categories,cid,dir)})}))}
+                  onMoveModel={(cid,scid,mid,dir)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:(scid
+                    ?{...c,subCategories:(c.subCategories||[]).map(sc=>sc.id!==scid?sc:{...sc,models:moveById(sc.models,mid,dir)})}
+                    :{...c,models:moveById(c.models,mid,dir)}))})}))}
                   onMoveSub={(cid,scid,dir)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:moveById(c.subCategories||[],scid,dir)})})}))}
                 />
               ))}
