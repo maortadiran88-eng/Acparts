@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>קטלוג חלקי חילוף</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════
+   DESIGN SYSTEM — Tadiran VRF Parts Catalog
+   Professional, calm, information-first. RTL native.
+   ══════════════════════════════════════════════════════════ */
+
+/* ─── Reset ───────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'IBM Plex Sans Hebrew','Segoe UI',Arial,sans-serif;
+  direction:rtl;background:var(--bg);color:var(--text);
+  transition:background .25s,color .25s;
+  -webkit-font-smoothing:antialiased;
+  font-size:14px;line-height:1.5;
+}
+
+/* ─── Light mode — 2026 Deep Premium Blue + Cyan ─── */
+:root{
+  --bg:#f4f0e8;
+  --card:#fffdf8;
+  --card2:#f0ebe0;
+  --text:#1d1b17;
+  --text2:#3d3a33;
+  --sub:#7a7466;
+  --border:#e3dccd;
+  --border2:#cfc6b2;
+  --inp:#1d1b17;
+  --row1:#fffdf8;
+  --row2:#f8f4ea;
+  --hi:#ffe8b0;
+  --sel:#e2efd6;
+  --sidebar:#fffdf8;
+  --ibg:#fffdf8;
+  --shadow:rgba(60,45,20,.08);
+  --shadow2:rgba(60,45,20,.18);
+
+  /* Brand / functional colors */
+  --primary:#e8590c;
+  --primary-dark:#c24a08;
+  --primary-light:#fdebdc;
+  --accent:#e8590c;
+  --accent-light:#fdebdc;
+  --cyan:#f59f00;
+  --cyan-glow:rgba(232,89,12,.28);
+  --green:#15803d;
+  --green-bg:#eafaf0;
+  --orange:#b45309;
+  --orange-bg:#fff7e6;
+  --red:#c0242c;
+  --red-bg:#fdecec;
+
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:18px;
+  --radius-xl:26px;
+
+  --glass-bg:rgba(255,253,248,.92);
+  --glass-border:#e3dccd;
+}
+
+/* ─── Dark mode — Midnight Tech ──────────── */
+.dark{
+  --bg:#16140f;
+  --card:#201d16;
+  --card2:#292519;
+  --text:#f5efe2;
+  --text2:#d8d0bd;
+  --sub:#9a917c;
+  --border:#383325;
+  --border2:#4d4632;
+  --inp:#f5efe2;
+  --row1:#201d16;
+  --row2:#262218;
+  --hi:#4a3b10;
+  --sel:#1f3319;
+  --sidebar:#201d16;
+  --ibg:#292519;
+  --shadow:rgba(0,0,0,.45);
+  --shadow2:rgba(0,0,0,.65);
+
+  --primary:#ff8a3d;
+  --primary-dark:#f0721c;
+  --primary-light:#3a2412;
+  --accent:#ff8a3d;
+  --accent-light:#3a2412;
+  --cyan:#ffc247;
+  --cyan-glow:rgba(255,138,61,.35);
+  --green:#3fcf76;
+  --green-bg:#0f2a1c;
+  --orange:#ffb74d;
+  --orange-bg:#332309;
+  --red:#ff6b6b;
+  --red-bg:#3a1414;
+
+  --glass-bg:rgba(32,29,22,.92);
+  --glass-border:#383325;
+}
+
+/* ─── Scrollbar ───────────────────────────── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
+::-webkit-scrollbar-thumb:hover{background:var(--sub)}
+
+/* ─── Animations ──────────────────────────── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes tickerScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes tipFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes popIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+
+/* ─── Typography scale ───────────────────── */
+.tc-page-title{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.2px}
+.tc-section-title{font-size:15px;font-weight:700;color:var(--text)}
+.tc-sub-title{font-size:12.5px;font-weight:600;color:var(--sub);text-transform:none}
+.tc-body{font-size:14px;color:var(--text2)}
+.tc-meta{font-size:11.5px;color:var(--sub)}
+
+/* ─── Form elements ───────────────────────── */
+input,textarea,select{font-family:inherit;transition:border-color .15s,box-shadow .15s}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--primary)!important;box-shadow:0 0 0 3px var(--primary-light)!important}
+::placeholder{color:var(--sub);opacity:.85}
+
+/* ─── Card elevation system ───────────────── */
+.card-sm{background:var(--card);border-radius:var(--radius-sm);box-shadow:0 1px 3px var(--shadow);border:1px solid var(--border)}
+.card-md{background:var(--card);border-radius:var(--radius-md);box-shadow:0 2px 10px var(--shadow);border:1px solid var(--border)}
+.card-lg{background:var(--card);border-radius:var(--radius-lg);box-shadow:0 6px 24px var(--shadow2)}
+
+/* ─── Buttons — unified system ────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  font-family:inherit;font-weight:600;font-size:13.5px;cursor:pointer;
+  border-radius:10px;border:1px solid transparent;padding:9px 16px;
+  transition:opacity .15s,transform .08s,background .15s,border-color .15s;
+  white-space:nowrap;
+}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-secondary{background:var(--card2);color:var(--text);border-color:var(--border2)}
+.btn-secondary:hover{background:var(--border)}
+.btn-ghost{background:transparent;color:var(--text2);border-color:transparent}
+.btn-ghost:hover{background:var(--card2)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-icon{width:36px;height:36px;padding:0;border-radius:10px}
+.btn-sm{padding:6px 12px;font-size:12.5px;border-radius:8px}
+
+/* Header icon buttons (glass header — see .header-glass) */
+.hdr-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  background:rgba(127,140,165,.14);color:var(--text);border:none;border-radius:9px;
+  padding:8px 11px;cursor:pointer;font-size:14px;transition:background .15s,transform .08s;
+  flex-shrink:0;position:relative;
+}
+.hdr-btn:hover{background:rgba(127,140,165,.26)}
+.hdr-btn:active{transform:scale(.94)}
+.hdr-btn.on{background:var(--primary);color:#fff}
+
+/* Header tooltip variant — bubble drops downward from a sticky top bar */
+.tt-hdr::after{bottom:auto;top:calc(100% + 9px);transform:translateX(-50%) translateY(-4px)}
+.tt-hdr::before{bottom:auto;top:calc(100% + 4px);border-top-color:transparent;border-bottom-color:var(--text);transform:translateX(-50%) translateY(-4px)}
+.tt-hdr:hover::after,.tt-hdr:hover::before{transform:translateX(-50%) translateY(0)}
+
+/* Dropdown menu (e.g. admin tools) */
+.menu-wrap{position:relative}
+.menu-panel{
+  position:absolute;top:calc(100% + 10px);left:0;z-index:250;min-width:230px;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);
+  box-shadow:0 16px 40px var(--shadow2);padding:6px;animation:popIn .16s ease-out;
+  max-height:70vh;overflow-y:auto;
+}
+.menu-item{
+  display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border-radius:9px;
+  border:none;background:transparent;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;
+  cursor:pointer;transition:background .15s ease;text-align:right;
+}
+.menu-item:hover{background:var(--card2)}
+.menu-item .ic{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.menu-item.danger{color:var(--red)}
+.menu-item.danger:hover{background:var(--red-bg)}
+.menu-divider{height:1px;background:var(--border);margin:5px 4px}
+
+/* ─── Badges ───────────────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+
+/* ─── Table improvements ──────────────────── */
+table{border-collapse:separate;border-spacing:0}
+.tc-table{width:100%;font-size:13.5px}
+.tc-table thead th{
+  position:sticky;top:0;background:var(--card2);color:var(--sub);
+  font-weight:700;font-size:11.5px;text-align:right;padding:11px 12px;
+  border-bottom:2px solid var(--border);white-space:nowrap;z-index:1;
+}
+.tc-table tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+.tc-table tbody tr{transition:background .1s}
+.tc-table tbody tr:hover{background:var(--card2)}
+
+/* ─── Layout helpers ───────────────────────── */
+.tc-container{max-width:1160px;margin:0 auto;width:100%}
+.tc-breadcrumb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--sub)}
+.tc-breadcrumb .seg{cursor:pointer;color:var(--sub);transition:color .12s}
+.tc-breadcrumb .seg:hover{color:var(--primary)}
+.tc-breadcrumb .seg.current{color:var(--text);font-weight:700;cursor:default}
+.tc-breadcrumb .sep{color:var(--border2)}
+
+/* ─── Hero search (Home) ──────────────────── */
+.hero-search-wrap{position:relative;max-width:640px;margin:0 auto}
+.hero-search{
+  width:100%;padding:16px 52px 16px 20px;border-radius:16px;
+  border:2px solid var(--border);background:var(--card);
+  font-size:16px;color:var(--text);box-shadow:0 4px 20px var(--shadow);
+}
+.hero-search:focus{border-color:var(--cyan);box-shadow:0 4px 24px var(--shadow2),0 0 0 4px var(--cyan-glow)!important}
+
+/* ─── Brand cards / Bento tiles ─────────────── */
+.brand-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:18px 16px;cursor:pointer;transition:transform .14s,box-shadow .14s,border-color .14s;
+  display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;
+}
+.brand-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px var(--shadow);border-color:var(--border2)}
+
+/* Glass surface — used for hero, login, header overlays */
+.glass{
+  background:var(--glass-bg);border:1px solid var(--glass-border);
+  backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+}
+
+/* Bento tile — 3D tilt + cursor-tracked cyan glow (transform/--mx/--my set via JS) */
+.bento-tile{
+  position:relative;border-radius:var(--radius-xl);overflow:hidden;transform-style:preserve-3d;
+  transition:transform .18s ease,box-shadow .3s ease;will-change:transform;cursor:pointer;
+}
+.bento-tile .glow-layer{
+  position:absolute;inset:0;border-radius:inherit;opacity:0;transition:opacity .25s ease;pointer-events:none;z-index:1;
+  background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), var(--cyan-glow), transparent 60%);
+}
+.bento-tile:hover .glow-layer{opacity:1}
+.bento-tile:hover{box-shadow:0 20px 50px var(--shadow2)}
+
+/* Scroll-reveal (Fade & Slide) */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+.reveal.show{opacity:1;transform:none}
+
+/* Cool-air particle canvas — decorative, sits behind hero content */
+.air-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.65;z-index:0}
+
+/* ─── Login screen — adaptive background (light pastel aurora / dark tech navy) ─── */
+.login-bg{background:linear-gradient(160deg,#dfe9ff,#f4f0ff)}
+.dark .login-bg{background:linear-gradient(160deg,#060c1c,#0d1b33,#060c1c)}
+.login-blob-a{background:#a9c8ff}.dark .login-blob-a{background:var(--cyan)}
+.login-blob-b{background:#ffc6e8}.dark .login-blob-b{background:#3b6fd6}
+.login-blob-c{background:#bdf7dd}.dark .login-blob-c{background:#7c5cff}
+
+/* ─── Management toolbar — same design language as the home screen ─── */
+.toolbar-panel{
+  background:var(--glass-bg);border:1px solid var(--glass-border);
+  backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);
+  border-radius:var(--radius-lg);padding:10px;box-shadow:0 4px 20px var(--shadow);
+}
+.tool-group{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.tool-sep{width:1px;align-self:stretch;background:var(--border2);margin:2px 6px;flex-shrink:0}
+.tool-group-label{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;width:100%;margin-bottom:2px}
+
+.tool-btn{
+  position:relative;display:inline-flex;align-items:center;gap:7px;
+  padding:8px 12px;border-radius:12px;border:1px solid transparent;background:transparent;
+  color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  transition:background .18s ease,color .18s ease,transform .12s ease,box-shadow .18s ease,border-color .18s ease;
+  white-space:nowrap;
+}
+.tool-btn .ic{font-size:15px;line-height:1;transition:transform .18s ease;display:inline-block}
+.tool-btn:hover{background:var(--card2);color:var(--text)}
+.tool-btn:hover .ic{transform:scale(1.15)}
+.tool-btn:active{transform:scale(.94)}
+.tool-btn.active{background:var(--primary);color:#fff;box-shadow:0 4px 14px var(--cyan-glow);border-color:transparent}
+.tool-btn.active:hover{background:var(--primary-dark);color:#fff}
+.tool-btn.warn{color:var(--orange)}
+.tool-btn.warn:hover{background:var(--orange-bg)}
+.tool-btn.danger{color:var(--red)}
+.tool-btn.danger:hover{background:var(--red-bg)}
+.tool-btn:disabled{opacity:.4;cursor:default}
+.tool-btn:disabled:hover{background:transparent;color:var(--text2)}
+
+/* Icon-only round button (row-level actions) */
+.icon-btn{
+  display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;
+  border:1px solid transparent;background:transparent;color:var(--sub);cursor:pointer;font-size:14px;
+  transition:background .15s ease,color .15s ease,transform .12s ease;
+}
+.icon-btn:hover{background:var(--card2);color:var(--text);transform:scale(1.08)}
+.icon-btn:active{transform:scale(.92)}
+.icon-btn.active{background:var(--orange-bg);color:var(--orange)}
+
+/* Tooltip — lightweight, CSS-only, fast */
+.tt{position:relative}
+.tt::after{
+  content:attr(data-tt);position:absolute;bottom:calc(100% + 9px);left:50%;
+  transform:translateX(-50%) translateY(4px);
+  background:var(--text);color:var(--card);font-size:11px;font-weight:600;padding:6px 11px;border-radius:8px;
+  white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;z-index:60;
+  box-shadow:0 6px 16px var(--shadow2);
+}
+.tt::before{
+  content:'';position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:var(--text);opacity:0;transition:opacity .15s ease;pointer-events:none;z-index:60;
+}
+.tt:hover::after,.tt:hover::before{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Hidden-from-customers badge */
+.badge-hidden{
+  display:inline-flex;align-items:center;gap:4px;background:var(--orange-bg);color:var(--orange);
+  border:1px solid var(--orange);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;
+}
+
+@keyframes tapPop{0%{transform:scale(1)}45%{transform:scale(.9)}100%{transform:scale(1)}}
+
+@media(max-width:640px){
+  .tool-btn .lbl{display:none}
+  .tool-btn{padding:9px;border-radius:11px}
+  .tool-group-label{font-size:9px}
+}
+
+/* Empty / loading states ───────────────── */
+.empty-state{text-align:center;padding:48px 20px;color:var(--sub)}
+.empty-state .icon{font-size:38px;margin-bottom:10px;opacity:.7}
+
+/* ─── Mobile ──────────────────────────────── */
+@media(max-width:640px){
+  .hide-mobile{display:none!important}
+  .tc-page-title{font-size:19px}
+  .hero-search{font-size:15px;padding:14px 46px 14px 16px}
+}
+
+/* ═════ Workshop-catalog skin: warm paper, ink, safety-orange, crisp edges ═════ */
+:root{--radius-sm:4px;--radius-md:6px;--radius-lg:8px;--radius-xl:10px;--mono:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+body{background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:28px 28px;background-attachment:fixed;background-color:var(--bg)}
+.dark body,body.dark{background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px)}
+.glass,.toolbar-panel{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;border:1.5px solid var(--text)}
+.dark .glass,.dark .toolbar-panel{border-color:var(--border2)}
+.card-md,.card-sm,.brand-card,.menu-panel{box-shadow:3px 3px 0 var(--border2);border:1.5px solid var(--text)}
+.dark .card-md,.dark .card-sm,.dark .brand-card,.dark .menu-panel{border-color:var(--border2);box-shadow:3px 3px 0 #000}
+.brand-card:hover,.bento-tile:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--primary);border-color:var(--text)}
+.bento-tile{border-radius:var(--radius-lg);transform:none!important}
+.bento-tile .glow-layer{display:none}
+.btn,.tool-btn,.hdr-btn,.icon-btn,.menu-item{border-radius:var(--radius-md)}
+.btn-primary,.tool-btn.active,.hdr-btn.on{background:var(--primary);color:#fff;border:1.5px solid var(--text);box-shadow:2px 2px 0 var(--text)}
+.dark .btn-primary,.dark .tool-btn.active,.dark .hdr-btn.on{color:#1a1208;border-color:#000;box-shadow:2px 2px 0 #000}
+.btn-primary:hover,.tool-btn.active:hover{background:var(--primary-dark);color:#fff}
+.btn-primary:active{transform:translate(2px,2px);box-shadow:none}
+.tc-page-title,.tc-section-title{letter-spacing:0;font-weight:700}
+.tc-page-title{border-inline-start:6px solid var(--primary);padding-inline-start:12px}
+.tc-table thead th{background:var(--text);color:var(--card);text-transform:none;font-size:12px;letter-spacing:.3px;border-bottom:0}
+.dark .tc-table thead th{background:var(--card2);color:var(--text);border-bottom:2px solid var(--primary)}
+.tc-table tbody td{font-variant-numeric:tabular-nums}
+.tc-table tbody td:nth-child(n+4){font-family:var(--mono);font-size:12.5px}
+.tc-meta,.tt::after{font-family:var(--mono)}
+.hero-search{border:1.5px solid var(--text);border-radius:var(--radius-md);box-shadow:4px 4px 0 var(--border2)}
+.hero-search:focus{border-color:var(--primary);box-shadow:4px 4px 0 var(--primary)!important}
+.badge,.badge-hidden{border-radius:3px;text-transform:none}
+.air-canvas{opacity:.18}
+.login-bg,.dark .login-bg{background:var(--bg)}
+.login-blob-a,.login-blob-b,.login-blob-c,.dark .login-blob-a,.dark .login-blob-b,.dark .login-blob-c{background:var(--primary);opacity:.12!important;border-radius:0!important;filter:none!important}
+input:focus,textarea:focus,select:focus{border-radius:var(--radius-md)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="js/localdb.js"></script>
+
+<script>
+  Babel.registerPreset("my-react-env", {
+    presets: [
+      Babel.availablePresets["env"],
+      [Babel.availablePresets["react"], { runtime: "classic" }]
+    ]
+  });
+</script>
+
+<script type="text/babel" data-presets="my-react-env" src="js/constants.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/storage.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/helpers.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/components.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/modals.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/ModelView.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/compare.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/makat_review.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/App.js?v=1791432639"></script>
+</body>
+</html>
