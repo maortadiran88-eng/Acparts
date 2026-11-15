@@ -164,7 +164,7 @@ function BulkDeleteModal({data,onDelete,onClose}){
   const toggle=k=>setSel(p=>{const n=new Set(p);n.has(k)?n.delete(k):n.add(k);return n;});
   return(
     <Modal onClose={onClose} wide title="🗑 מחיקה מרובה">
-      <div style={{background:'var(--red-bg)',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:12,color:'var(--red)',fontWeight:'bold'}}>⚠ המחיקה לצמיתות — לא ניתנת לביטול!</div>
+      <div style={{background:'var(--red-bg)',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:12,color:'var(--red)',fontWeight:'bold'}}>הדגמים שתבחר יועברו לסל המחזור ואפשר יהיה לשחזר אותם משם.</div>
       <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
         <input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍 חפש..." style={{flex:1,minWidth:100,...INS,padding:'7px 12px'}}/>
         <button onClick={()=>setSel(new Set(filtered.map(x=>key(x.bid,x.cid,x.mid))))} style={sB('var(--sub)')}>בחר הכל</button>
@@ -182,7 +182,7 @@ function BulkDeleteModal({data,onDelete,onClose}){
           </div>
         );})}
       </div>
-      {sel.size>0&&<div style={{background:'var(--red-bg)',borderRadius:8,padding:'8px 14px',marginBottom:10,fontSize:13,color:'var(--red)',fontWeight:'bold'}}>🗑 {sel.size} דגמים יימחקו לצמיתות</div>}
+      {sel.size>0&&<div style={{background:'var(--red-bg)',borderRadius:8,padding:'8px 14px',marginBottom:10,fontSize:13,color:'var(--red)',fontWeight:'bold'}}>🗑 {sel.size} דגמים יועברו לסל המחזור</div>}
       <div style={{display:'flex',gap:8}}>
         <button onClick={()=>{if(!sel.size){alert('לא נבחרו דגמים');return;}const sels=[...sel].map(k=>{const[bid,cid,mid]=k.split('§');return{bid,cid,mid};});onDelete(sels);onClose();}} style={{flex:1,...BPr(sel.size?'var(--red)':'#9aa5b1')}}>🗑 מחק{sel.size>0?` (${sel.size})`:''}</button>
         <button onClick={onClose} style={{flex:1,...BST}}>ביטול</button>
@@ -254,7 +254,7 @@ function BrandMgr({data,onClose,onSave}){
   const[brands,setBrands]=useState(JSON.parse(JSON.stringify(data.brands)));
   const add=()=>setBrands(b=>[...b,{id:gid(),name:'מותג חדש',color:'#607d8b',light:'#eceff1',categories:DCATS()}]);
   const upd=(id,k,v)=>setBrands(b=>b.map(x=>x.id!==id?x:{...x,[k]:v}));
-  const del=id=>{if(confirm('למחוק?'))setBrands(b=>b.filter(x=>x.id!==id));};
+  const del=id=>{if(confirm('למחוק את המותג?\nהמחיקה תתבצע כשתלחץ "שמור", והמותג יישמר בסל המחזור ואפשר יהיה לשחזר אותו.'))setBrands(b=>b.filter(x=>x.id!==id));};
   const move=(idx,dir)=>setBrands(b=>{
     const j=idx+dir; if(j<0||j>=b.length)return b;
     const n=[...b]; [n[idx],n[j]]=[n[j],n[idx]]; return n;
@@ -492,7 +492,6 @@ function ChangePwd({data,onSave,onClose}){
 }
 
 // ══════════ USERS MANAGER (admin only) ══════════
-// המשתמשים והסיסמאות נשמרים בשרת בלבד (מגובבים). הדפדפן לא רואה סיסמאות אלא רק שולח סיסמה חדשה.
 function UsersManagerModal({onClose}){
   const[users,setUsers]=useState(null);const[err,setErr]=useState('');const[busy,setBusy]=useState(false);
   const[conf,setConf]=useState('');const[edits,setEdits]=useState({});const[nu,setNu]=useState({label:'',role:'viewer',pw:''});
@@ -559,6 +558,72 @@ function UsersManagerModal({onClose}){
         </div>
       </div>
       <button onClick={onClose} style={{width:'100%',...BST}}>סגור</button>
+    </Modal>
+  );
+}
+
+// ══════════ TRASH — סל מחזור (admin only) ══════════
+function TrashModal({onClose,loadList,isPending,hasPending,onRestore,onPurge,onEmpty}){
+  const[items,setItems]=useState(null);const[err,setErr]=useState('');const[note,setNote]=useState('');const[busy,setBusy]=useState('');
+  const load=async()=>{try{const l=await loadList();setItems(l.filter(x=>!isPending(x.tid)));setErr('');}catch(e){setItems([]);setErr(e.message||'טעינת סל המחזור נכשלה');}};
+  useEffect(()=>{load();},[]);
+  const ICON={model:'◈',sub:'📂',cat:'📁',brand:'🏷'};
+  const KIND={model:'דגם',sub:'תת-קטגוריה',cat:'קטגוריה',brand:'מותג'};
+  const ago=ms=>{
+    if(!ms)return '';
+    const m=Math.floor((Date.now()-ms)/60000);
+    const rel=m<1?'הרגע':m<60?`לפני ${m} דקות`:m<1440?`לפני ${Math.floor(m/60)} שעות`:`לפני ${Math.floor(m/1440)} ימים`;
+    return rel+' · '+new Date(ms).toLocaleDateString('he-IL');
+  };
+  const summary=it=>it.kind==='model'?`${(it.nParts||0).toLocaleString()} חלקים`:`${it.nModels||0} דגמים · ${(it.nParts||0).toLocaleString()} חלקים`;
+  const restore=async it=>{
+    setBusy(it.tid);setErr('');setNote('');
+    const r=await onRestore(it);
+    setBusy('');
+    if(r.error){setErr(r.error);return;}
+    setItems(l=>l.filter(x=>x.tid!==it.tid));
+    setNote(`✅ ${KIND[it.kind]} "${it.name}" שוחזר למקומו`);
+  };
+  const purge=async it=>{
+    if(!confirm(`למחוק את "${it.name}" לצמיתות?\nאי אפשר יהיה לשחזר אותו אחרי זה.`))return;
+    setBusy(it.tid);setErr('');setNote('');
+    try{await onPurge(it);setItems(l=>l.filter(x=>x.tid!==it.tid));setNote(`"${it.name}" נמחק לצמיתות`);}catch(e){setErr(e.message||'המחיקה נכשלה');}
+    setBusy('');
+  };
+  const empty=async()=>{
+    if(hasPending()){setErr('יש שחזור שעדיין נשמר. נסה שוב בעוד כמה שניות.');return;}
+    if(!confirm(`לרוקן את סל המחזור? ${(items||[]).length} פריטים יימחקו לצמיתות ואי אפשר יהיה לשחזר אותם.`))return;
+    setBusy('*');setErr('');setNote('');
+    try{await onEmpty();setItems([]);setNote('הסל רוקן');}catch(e){setErr(e.message||'הריקון נכשל');}
+    setBusy('');
+  };
+  return(
+    <Modal onClose={onClose} wide title="🗑 סל מחזור">
+      <div style={{fontSize:12,color:'var(--sub)',marginBottom:12,background:'var(--primary-light)',borderRadius:8,padding:'10px 14px',lineHeight:1.7}}>
+        דגמים, תתי-קטגוריות, קטגוריות ומותגים שנמחקו נשמרים כאן עד שתמחק אותם לצמיתות או תרוקן את הסל. "שחזר" מחזיר את הפריט למקום שבו היה, עם כל החלקים והשרטוטים שלו.
+      </div>
+      {err&&<div style={{background:'var(--red-bg)',color:'var(--red)',borderRadius:8,padding:'9px 12px',fontSize:13,fontWeight:700,marginBottom:10,lineHeight:1.6}}>⚠ {err}</div>}
+      {note&&<div style={{background:'var(--green-bg)',color:'var(--green)',borderRadius:8,padding:'9px 12px',fontSize:13,fontWeight:700,marginBottom:10}}>{note}</div>}
+      {!items&&<div style={{textAlign:'center',padding:24,color:'var(--sub)'}}>טוען...</div>}
+      {items&&!items.length&&!err&&<div style={{textAlign:'center',padding:'28px 10px',color:'var(--sub)'}}>🗑 הסל ריק</div>}
+      <div style={{maxHeight:'50vh',overflowY:'auto',marginBottom:12}}>
+        {(items||[]).map(it=>(
+          <div key={it.tid} style={{display:'flex',gap:10,alignItems:'center',padding:'10px 12px',borderRadius:10,border:'1px solid var(--border)',marginBottom:8,flexWrap:'wrap',background:'var(--row2)'}}>
+            <div style={{fontSize:22,width:30,textAlign:'center',flexShrink:0}}>{ICON[it.kind]||'◈'}</div>
+            <div style={{flex:'1 1 180px',minWidth:0}}>
+              <div style={{fontWeight:'bold',fontSize:14,color:'var(--text)',wordBreak:'break-word'}}><span style={{fontSize:11,fontWeight:600,color:'var(--sub)',marginLeft:6}}>{KIND[it.kind]}</span>{it.name}</div>
+              <div style={{fontSize:11,color:'var(--sub)',marginTop:2}}>{it.path?it.path+' · ':''}{summary(it)}</div>
+              <div style={{fontSize:11,color:'var(--sub)'}}>נמחק {ago(it.ts)}{it.by?' · על ידי '+it.by:''}</div>
+            </div>
+            <button onClick={()=>restore(it)} disabled={!!busy} style={{...sB(busy?'#9aa5b1':'var(--primary)'),padding:'8px 14px'}}>{busy===it.tid?'...':'↩ שחזר'}</button>
+            <button onClick={()=>purge(it)} disabled={!!busy} style={{background:'none',border:'1px solid var(--red)',color:'var(--red)',borderRadius:6,padding:'7px 10px',cursor:'pointer',fontSize:12}}>מחק לצמיתות</button>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        {items&&items.length>0&&<button onClick={empty} disabled={!!busy} style={{flex:'0 0 auto',background:'none',border:'1px solid var(--red)',color:'var(--red)',borderRadius:8,padding:'9px 16px',cursor:'pointer',fontWeight:700,fontSize:13}}>רוקן את הסל</button>}
+        <button onClick={onClose} style={{flex:1,...BST}}>סגור</button>
+      </div>
     </Modal>
   );
 }

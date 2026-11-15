@@ -45,6 +45,9 @@ function App() {
   const [showNewsEditor, setShowNewsEditor] = useState(false);
   const [showBroadcast,  setShowBroadcast]  = useState(false);
   const [showUsersMgr,   setShowUsersMgr]   = useState(false);
+  const [showTrash,      setShowTrash]      = useState(false);   // סל מחזור
+  const [trashCount,     setTrashCount]     = useState(0);
+  const [editMode,       setEditMode]       = useState(false);   // מצב עריכה בסרגל הצד (מנהל): הזזה, שינוי שם ומחיקה
   const [showTipsEdit,   setShowTipsEdit]   = useState(false);
   const [undoStack,      setUndoStack]      = useState([]); // last 5 reversible actions
   const [showUndo,       setShowUndo]       = useState(null); // {msg, fn}
@@ -68,6 +71,9 @@ function App() {
   const saveCount    = useRef(0);
   const saveInFlight = useRef(false);
   const saveAgain    = useRef(false);
+  const pendingTrash = useRef([]);   // פריטים ששוחזרו ועוד לא נשמרו בקטלוג: נמחקים מהסל רק אחרי שהשמירה הצליחה
+  const restoreSeq   = useRef(0);
+  const latestSeq    = useRef(0);
   const latestData   = useRef(null);
   const retryTimer   = useRef(null);
 
@@ -113,6 +119,7 @@ function App() {
       fbGetTechRequests().then(setTechRequests);
       fbGetAlerts().then(setAlerts);
     }
+    if (admin) fbTrashList().then(l => setTrashCount(l.length)).catch(()=>{});
   }, [loginRole]);
 
   // Single-flight autosave: only ONE fbSave may be in flight at a time. If the
@@ -132,6 +139,7 @@ function App() {
         saveAgain.current = false;
         setSaving('saving');
         const snap = latestData.current;
+        const snapSeq = latestSeq.current;   // אילו שחזורים כלולים בנתונים שנשמרים עכשיו
         // Capture + clear BEFORE awaiting — edits made mid-save go to a fresh Set
         const midsToSave = changedMids.current;
         changedMids.current = new Set();
@@ -141,6 +149,7 @@ function App() {
           if (saveCount.current % 5 === 0) fbSaveSnapshot(snap, loginLabel||loginRole||'system', 'שמירה אוטומטית');
           clearTimeout(retryTimer.current);
           setSaving('saved'); setSaveErr('');
+          flushTrash(snapSeq);
           setTimeout(() => setSaving(s => s==='saved' ? '' : s), 3000);
         } catch(e) {
           // Put the ids back so the next save retries them instead of losing them
@@ -155,6 +164,7 @@ function App() {
   useEffect(() => {
     if (!loaded||!data) return;
     latestData.current = data;
+    latestSeq.current = restoreSeq.current;
     if (firstLoad.current) { firstLoad.current=false; return; }
     setSaving('saving');
     clearTimeout(saveTimer.current);
@@ -245,6 +255,86 @@ function App() {
     fbLogAlert({type,text,actor:loginLabel||loginRole}).then(()=>fbGetAlerts().then(setAlerts));
   };
 
+  // ══════════ סל מחזור: כל מחיקה של דגם / תת-קטגוריה / קטגוריה / מותג נשמרת קודם בסל ואפשר לשחזר אותה ══════════
+  const nModelsCat   = c => c.models.length + (c.subCategories||[]).reduce((s,sc)=>s+sc.models.length,0);
+  const nModelsBrand = b => b.categories.reduce((s,c)=>s+nModelsCat(c),0);
+  const trashLastErr = useRef('');
+  // שומר בסל. אם השמירה נכשלה לא מוחקים כלום. quiet=true: בלי הודעה (למחיקה גורפת, שמציגה הודעה אחת)
+  const moveToTrash = async (kind, loc, node, path, quiet) => {
+    try {
+      const bundle = await fbTrashPut({kind, loc, node, path, by: loginLabel||loginRole});
+      setTrashCount(n => n+1);
+      return bundle;
+    } catch(e) {
+      trashLastErr.current = e.message||String(e);
+      if (!quiet) alert('לא הצלחתי לשמור את הפריט בסל המחזור, ולכן לא מחקתי אותו.\n\n'+trashLastErr.current);
+      return null;
+    }
+  };
+  // מחזיר פריט מהסל למקומו. preBundle: חבילה שכבר בזיכרון (כפתור "בטל"), אחרת נטענת מהשרת
+  const trashRestore = async (meta, preBundle) => {
+    let bundle = preBundle;
+    if (!bundle) { try { bundle = await fbTrashLoad(meta); } catch(e) { return {error: e.message||String(e)}; } }
+    const r = trashApply(latestData.current, bundle);
+    if (r.error) return {error: r.error};
+    r.mids.forEach(id => changedMids.current.add(id));
+    restoreSeq.current += 1;
+    pendingTrash.current.push({meta, seq: restoreSeq.current});
+    setData(r.data);
+    setTrashCount(n => Math.max(0, n-1));
+    logAction('שחזור מסל המחזור', {name: meta.name, kind: TRASH_KIND[meta.kind]});
+    return {ok:true};
+  };
+  // אחרי שמירה מוצלחת של הקטלוג: מוחקים מהסל את מה ששוחזר. אם הדף נסגר לפני כן, הפריט נשאר בסל ואפשר לשחזר שוב
+  const flushTrash = async upTo => {
+    const done = pendingTrash.current.filter(p => p.seq <= upTo);
+    pendingTrash.current = pendingTrash.current.filter(p => p.seq > upTo);
+    for (const p of done) { try { await fbTrashDelete(p.meta); } catch(e) { console.warn('trash cleanup failed', e); } }
+  };
+  // מחיקה לצמיתות מהסל: מנקה גם את מסמכי החלקים של דגמים שאינם בקטלוג (דגם שחזר לקטלוג לא ייפגע)
+  const dropOrphanParts = async mids => {
+    const have = new Set();
+    latestData.current.brands.forEach(b => b.categories.forEach(c => c.models.forEach(m => have.add(m.id))));
+    const gone = mids.filter(id => !have.has(id));
+    if (!gone.length) return;
+    const batch = db.batch();
+    gone.forEach(id => batch.delete(db.collection('parts').doc(id)));
+    try { await batch.commit(); } catch(e) { console.warn('orphan parts cleanup failed', e); }
+  };
+  const undoFromBundle = bundle => async () => {
+    const r = await trashRestore(bundle.meta, bundle);
+    if (r.error) { alert(r.error); return false; }
+  };
+  const delBrand = async br => {
+    const n = nModelsBrand(br);
+    if (!confirm(`למחוק את המותג "${br.name}"${n?` ואת ${n} הדגמים שלו`:''}?\nהוא יישמר בסל המחזור ואפשר יהיה לשחזר אותו.`)) return;
+    const bundle = await moveToTrash('brand', {idx:data.brands.findIndex(x=>x.id===br.id)}, br, '');
+    if (!bundle) return;
+    fbSaveSnapshot(data, loginLabel||loginRole, 'לפני מחיקת מותג');
+    logAlert('delete', `נמחק מותג: ${br.name}`);
+    mut(d=>({...d,brands:d.brands.filter(x=>x.id!==br.id)}));
+    if (sel&&sel.bid===br.id) setSel(null);
+    pushUndo(`ביטול מחיקת מותג: ${br.name}`, undoFromBundle(bundle));
+  };
+  // שמירה מחלון "ניהול מותגים": מותגים שהוסרו נשמרים בסל לפני המחיקה
+  const saveBrandMgr = async brands => {
+    const removed = data.brands.filter(b => !brands.some(x => x.id === b.id));
+    const done = [];
+    for (const br of removed) {
+      const bundle = await moveToTrash('brand', {idx:data.brands.findIndex(x=>x.id===br.id)}, br, '');
+      if (!bundle) { for (const d of done) { try { await fbTrashDelete(d.meta); setTrashCount(n=>Math.max(0,n-1)); } catch(e) {} } return; }
+      done.push(bundle);
+    }
+    if (removed.length) {
+      fbSaveSnapshot(data, loginLabel||loginRole, 'לפני מחיקת מותג');
+      removed.forEach(br => logAlert('delete', `נמחק מותג: ${br.name}`));
+      if (sel && removed.some(r => r.id === sel.bid)) setSel(null);
+    }
+    mut(d=>({...d,brands}));
+    setBrandMgr(false);
+    done.forEach((bundle,i) => pushUndo(`ביטול מחיקת מותג: ${removed[i].name}`, undoFromBundle(bundle)));
+  };
+
   const toggleDark = () => setDark(v => { localStorage.setItem('ac_dark',v?'0':'1'); return !v; });
   const toggleFav  = mid => setFavorites(p => {
     const n=new Set(p); n.has(mid)?n.delete(mid):n.add(mid);
@@ -289,8 +379,23 @@ function App() {
   };
 
   const bulkDeleteModels = async sels => {
-    if(!confirm(`למחוק ${sels.length} דגמים לצמיתות?`))return;
+    if(!confirm(`למחוק ${sels.length} דגמים?\nהם יישמרו בסל המחזור ואפשר יהיה לשחזר אותם.`))return;
     fbSaveSnapshot(data, loginLabel||loginRole, `לפני מחיקת ${sels.length} דגמים`);
+
+    // כל דגם נשמר בסל המחזור לפני שנמחק. אם אחד נכשל: מבטלים הכול ולא נמחק שום דגם
+    const items = [];
+    sels.forEach(s => {
+      const b=data.brands.find(x=>x.id===s.bid), c=b?.categories.find(x=>x.id===s.cid), m=c?.models.find(x=>x.id===s.mid);
+      if(m) items.push({b,c,m,idx:c.models.findIndex(x=>x.id===s.mid)});
+    });
+    setSaving('saving');
+    const bundles = await sbPool(items, 3, it => moveToTrash('model',{bid:it.b.id,cid:it.c.id,scid:null,idx:it.idx},it.m,`${it.b.name} › ${it.c.name}`,true));
+    if (bundles.some(x=>!x)) {
+      for (const bd of bundles) if (bd) { try { await fbTrashDelete(bd.meta); } catch(e) {} setTrashCount(n=>Math.max(0,n-1)); }
+      setSaving('');
+      alert('המחיקה בוטלה ולא נמחק שום דגם, כי לא הצלחתי לשמור אותם בסל המחזור.\n\n'+trashLastErr.current);
+      return;
+    }
 
     // Build every Firestore operation (part-doc delete + alert log) up front,
     // then send them as chunked db.batch() writes instead of firing one
@@ -301,7 +406,6 @@ function App() {
       const b=data.brands.find(x=>x.id===s.bid);
       const c=b?.categories.find(x=>x.id===s.cid);
       const m=c?.models.find(x=>x.id===s.mid);
-      ops.push({type:'delete', ref:db.collection('parts').doc(s.mid)});
       if(m) ops.push({type:'alert', ref:db.collection('alerts').doc(), data:{
         type:'delete', text:`נמחק דגם: ${m.name} (${b?.name||''} / ${c?.name||''})`,
         actor:loginLabel||loginRole, ts:firebase.firestore.FieldValue.serverTimestamp()
@@ -549,6 +653,7 @@ function App() {
                 {admin&&<>
                   <div className="menu-divider"/>
                   <button className="menu-item" onClick={()=>{setBrandMgr(true);setMenuOpen(false);}}><span className="ic">⚙</span>ניהול מותגים</button>
+                  <button className="menu-item" onClick={()=>{setShowTrash(true);setMenuOpen(false);}}><span className="ic">🗑</span>סל מחזור{trashCount>0?` (${trashCount})`:''}</button>
                   <button className="menu-item" onClick={()=>{setShowDashboard(true);setMenuOpen(false);}}><span className="ic">📊</span>דשבורד</button>
                   <button className="menu-item" onClick={()=>{setShowUsersMgr(true);setMenuOpen(false);}}><span className="ic">👥</span>ניהול משתמשים</button>
                   <button className="menu-item" onClick={()=>{setChPwd(true);setMenuOpen(false);}}><span className="ic">🔑</span>שינוי סיסמה</button>
@@ -631,6 +736,17 @@ function App() {
                 {sidebarFilter&&<button onClick={()=>setSidebarFilter('')} style={{position:'absolute',left:6,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#999',fontSize:13}}>✕</button>}
               </div>
             </div>
+            {admin&&(
+              <div style={{padding:'6px 10px',borderBottom:'1px solid var(--border)',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                <button onClick={()=>setEditMode(v=>!v)} aria-pressed={editMode} title="מצב עריכה: שינוי מיקום, שינוי שם ומחיקה"
+                  style={{flex:'1 1 auto',padding:'6px 10px',borderRadius:8,border:'1.5px solid '+(editMode?'var(--primary)':'var(--border2)'),background:editMode?'var(--primary)':'var(--card)',color:editMode?'#fff':'var(--text)',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                  {editMode?'✓ סיום עריכה':'✏️ עריכה'}</button>
+                <button onClick={()=>setShowTrash(true)} title="סל מחזור: שחזור דגמים, קטגוריות ומותגים שנמחקו"
+                  style={{padding:'6px 10px',borderRadius:8,border:'1.5px solid var(--border2)',background:'var(--card)',color:'var(--text)',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                  🗑 סל מחזור{trashCount>0?` (${trashCount})`:''}</button>
+                {editMode&&<div style={{flexBasis:'100%',fontSize:11,color:'var(--sub)',lineHeight:1.5}}>מצב עריכה: ↑↓ לשינוי מיקום, ✏ לשינוי שם, 🗑 למחיקה. כל מה שנמחק נשמר בסל המחזור.</div>}
+              </div>
+            )}
             <div style={{flex:1,overflowY:'auto'}}>
               {data.brands.filter(b=>editor||!b.hidden).map(b=>(
                 <SidebarBrand key={b.id} brand={b} sel={sel} editor={editor} admin={admin} canSeeHidden={editor}
@@ -648,39 +764,58 @@ function App() {
                   }}
                   onAddModel={(cid,name,scid)=>handleAddModel(b,cid,name,scid)}
                   onDelModel={async(cid,mid,scid)=>{
-                    if(!confirm('למחוק?'))return;
                     const catObj=b.categories.find(c=>c.id===cid);
-                    const sourceModels=scid?(catObj?.subCategories||[]).find(sc=>sc.id===scid)?.models:catObj?.models;
+                    const subObj=scid?(catObj?.subCategories||[]).find(sc=>sc.id===scid):null;
+                    const sourceModels=scid?subObj?.models:catObj?.models;
                     const m=sourceModels&&sourceModels.find(m=>m.id===mid);
-                    const savedModel=m?JSON.parse(JSON.stringify(m)):null;
+                    if(!m)return;
+                    if(!confirm(`למחוק את הדגם "${m.name}"?\nהוא יישמר בסל המחזור ואפשר יהיה לשחזר אותו.`))return;
+                    const loc={bid:b.id,cid,scid:scid||null,idx:sourceModels.findIndex(x=>x.id===mid)};
+                    const bundle=await moveToTrash('model',loc,m,[b.name,catObj?.name,subObj?.name].filter(Boolean).join(' › '));
+                    if(!bundle)return;
                     fbSaveSnapshot(data,loginLabel||loginRole,'לפני מחיקת דגם');
-                    if(m) logAlert('delete',`נמחק דגם: ${m.name} (${b.name})`);
-                    try{await db.collection('parts').doc(mid).delete();}catch{}
+                    logAlert('delete',`נמחק דגם: ${m.name} (${b.name})`);
                     mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>{
                       if(c.id!==cid)return c;
                       if(scid)return{...c,subCategories:(c.subCategories||[]).map(sc=>sc.id!==scid?sc:{...sc,models:sc.models.filter(m=>m.id!==mid)})};
                       return{...c,models:c.models.filter(m=>m.id!==mid)};
                     })})}));
                     if(sel&&sel.mid===mid)setSel(null);
-                    if(savedModel){
-                      changedMids.current.add(savedModel.id);
-                      pushUndo(`ביטול מחיקת דגם: ${savedModel.name}`,()=>{
-                        mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>{
-                          if(c.id!==cid)return c;
-                          if(scid)return{...c,subCategories:(c.subCategories||[]).map(sc=>sc.id!==scid?sc:{...sc,models:[...sc.models,savedModel]})};
-                          return{...c,models:[...c.models,savedModel]};
-                        })})}));
-                      });
-                    }
+                    pushUndo(`ביטול מחיקת דגם: ${m.name}`,undoFromBundle(bundle));
                   }}
                   onAddCat={name=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:[...bb.categories,{id:gid(),name,models:[],subCategories:[]}]})}))}
                   onEditCat={(cid,name)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,name})})}))}
-                  onDelCat={cid=>{if(!confirm('למחוק?'))return;mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.filter(c=>c.id!==cid)})}));}}
+                  onDelCat={async cid=>{
+                    const cObj=b.categories.find(c=>c.id===cid); if(!cObj)return;
+                    const n=nModelsCat(cObj);
+                    if(!confirm(`למחוק את הקטגוריה "${cObj.name}"${n?` ואת ${n} הדגמים שבה`:''}?\nהיא תישמר בסל המחזור ואפשר יהיה לשחזר אותה.`))return;
+                    const bundle=await moveToTrash('cat',{bid:b.id,idx:b.categories.findIndex(c=>c.id===cid)},cObj,b.name);
+                    if(!bundle)return;
+                    fbSaveSnapshot(data,loginLabel||loginRole,'לפני מחיקת קטגוריה');
+                    logAlert('delete',`נמחקה קטגוריה: ${cObj.name} (${b.name})`);
+                    mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.filter(c=>c.id!==cid)})}));
+                    if(sel&&sel.bid===b.id&&sel.cid===cid)setSel(null);
+                    pushUndo(`ביטול מחיקת קטגוריה: ${cObj.name}`,undoFromBundle(bundle));
+                  }}
                   onAddSubCat={(cid,name)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:[...(c.subCategories||[]),{id:gid(),name,models:[]}]})})}))}
                   onEditSubCat={(cid,scid,name)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:(c.subCategories||[]).map(sc=>sc.id!==scid?sc:{...sc,name})})})}))}
-                  onDelSubCat={(cid,scid)=>{if(!confirm('למחוק תת-קטגוריה?'))return;mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:(c.subCategories||[]).filter(sc=>sc.id!==scid)})})}));}}
+                  onDelSubCat={async(cid,scid)=>{
+                    const cObj=b.categories.find(c=>c.id===cid);
+                    const sObj=(cObj?.subCategories||[]).find(sc=>sc.id===scid); if(!sObj)return;
+                    const n=sObj.models.length;
+                    if(!confirm(`למחוק את תת-הקטגוריה "${sObj.name}"${n?` ואת ${n} הדגמים שבה`:''}?\nהיא תישמר בסל המחזור ואפשר יהיה לשחזר אותה.`))return;
+                    const bundle=await moveToTrash('sub',{bid:b.id,cid,idx:cObj.subCategories.findIndex(sc=>sc.id===scid)},sObj,[b.name,cObj.name].join(' › '));
+                    if(!bundle)return;
+                    fbSaveSnapshot(data,loginLabel||loginRole,'לפני מחיקת תת-קטגוריה');
+                    logAlert('delete',`נמחקה תת-קטגוריה: ${sObj.name} (${b.name} › ${cObj.name})`);
+                    mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:(c.subCategories||[]).filter(sc=>sc.id!==scid)})})}));
+                    if(sel&&sel.bid===b.id&&sel.scid===scid)setSel(null);
+                    pushUndo(`ביטול מחיקת תת-קטגוריה: ${sObj.name}`,undoFromBundle(bundle));
+                  }}
                   canMoveUp={data.brands.findIndex(x=>x.id===b.id)>0}
                   canMoveDown={data.brands.findIndex(x=>x.id===b.id)<data.brands.length-1}
+                  editMode={admin&&editMode}
+                  onDelBrand={delBrand}
                   onMoveBrand={dir=>mut(d=>({...d,brands:moveById(d.brands,b.id,dir)}))}
                   onMoveCat={(cid,dir)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:moveById(bb.categories,cid,dir)})}))}
                   onMoveModel={(cid,scid,mid,dir)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:(scid
@@ -831,7 +966,7 @@ function App() {
       {/* UNDO HISTORY BUTTON (for editor/admin) */}
       {undoStack.length>0&&!showUndo&&(
         <div style={{position:'fixed',bottom:40,left:16,zIndex:998}}>
-          <button onClick={()=>{const last=undoStack[0];if(last){last.restoreFn();setUndoStack(p=>p.slice(1));alert('✅ הפעולה בוטלה: '+last.msg);}}}
+          <button onClick={async()=>{const last=undoStack[0];if(last){const done=await last.restoreFn();setUndoStack(p=>p.slice(1));if(done!==false)alert('✅ הפעולה בוטלה: '+last.msg);}}}
             style={{background:'#546e7a',color:'#fff',border:'none',borderRadius:20,padding:'8px 16px',cursor:'pointer',fontSize:12,fontWeight:'bold',boxShadow:'0 2px 8px rgba(0,0,0,.3)'}}>
             ↩ בטל ({undoStack.length})
           </button>
@@ -839,7 +974,11 @@ function App() {
       )}
 
       {chPwd    &&<ChangePwd   data={data} onSave={d=>{mut(()=>({...d}));setChPwd(false);alert('✅ נשמר');}} onClose={()=>setChPwd(false)}/>}
-      {brandMgr &&<BrandMgr   data={data} onSave={brands=>{mut(d=>({...d,brands}));setBrandMgr(false);}} onClose={()=>setBrandMgr(false)}/>}
+      {brandMgr &&<BrandMgr   data={data} onSave={saveBrandMgr} onClose={()=>setBrandMgr(false)}/>}
+      {showTrash&&admin&&<TrashModal onClose={()=>setShowTrash(false)} loadList={fbTrashList} isPending={tid=>pendingTrash.current.some(p=>p.meta.tid===tid)} hasPending={()=>pendingTrash.current.length>0}
+        onRestore={trashRestore}
+        onPurge={async meta=>{await fbTrashDelete(meta);await dropOrphanParts(meta.mids);setTrashCount(n=>Math.max(0,n-1));}}
+        onEmpty={async()=>{let list=[];try{list=await fbTrashList();}catch(e){}await fbTrashEmpty();for(const m of list)await dropOrphanParts(m.mids);setTrashCount(0);}}/>}
       {showXls  &&<XlsImportModal data={data} onImport={importFromXls} onClose={()=>setShowXls(false)}/>}
       {showBulkMove&&<BulkMoveModal data={data} onMove={bulkMoveModels} onClose={()=>setShowBulkMove(false)}/>}
       {showBulkDel &&<BulkDeleteModal data={data} onDelete={bulkDeleteModels} onClose={()=>setShowBulkDel(false)}/>}

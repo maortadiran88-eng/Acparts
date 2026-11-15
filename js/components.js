@@ -245,7 +245,7 @@ function MoveBtns({onUp,onDown,canUp,canDown,color,what}){
   return <span onClick={e=>e.stopPropagation()} style={{display:'inline-flex',gap:2,alignItems:'center',flexShrink:0,margin:'0 3px'}}>{btn(canUp,onUp,'↑','הזז למעלה')}{btn(canDown,onDown,'↓','הזז למטה')}</span>;
 }
 
-function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav,onNav,onAddModel,onDelModel,onAddCat,onEditCat,onDelCat,onAddSubCat,onEditSubCat,onDelSubCat,sidebarFilter,compareList,onToggleCompare,canMoveUp,canMoveDown,onMoveBrand,onMoveCat,onMoveSub,onMoveModel}){
+function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav,onNav,onAddModel,onDelModel,onAddCat,onEditCat,onDelCat,onAddSubCat,onEditSubCat,onDelSubCat,sidebarFilter,compareList,onToggleCompare,canMoveUp,canMoveDown,onMoveBrand,onMoveCat,onMoveSub,onMoveModel,editMode,onDelBrand}){
   const[open,setOpen]=useState(false);const[openCats,setOpenCats]=useState({});const[openSubs,setOpenSubs]=useState({});
   const[addingMod,setAddingMod]=useState(null);const[newModName,setNewModName]=useState('');
   const[editCat,setEditCat]=useState(null);const[addingCat,setAddingCat]=useState(false);const[newCatName,setNewCatName]=useState('');
@@ -321,7 +321,7 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
             <div style={{fontSize:10,color:'#7b1fa2',marginTop:2,fontWeight:'bold'}}>≡ {(m.synonyms||[]).filter(s=>s.toLowerCase().includes(sidebarFilter.toLowerCase())).join(', ')}</div>
           )}
         </div>
-        {admin&&!sidebarFilter&&onMoveModel&&mi>=0&&<MoveBtns color={brand.color} what={'את הדגם '+m.name} canUp={mi>0} canDown={mi<siblings.length-1} onUp={()=>onMoveModel(cid,scid,m.id,-1)} onDown={()=>onMoveModel(cid,scid,m.id,1)}/>}
+        {admin&&editMode&&!sidebarFilter&&onMoveModel&&mi>=0&&<MoveBtns color={brand.color} what={'את הדגם '+m.name} canUp={mi>0} canDown={mi<siblings.length-1} onUp={()=>onMoveModel(cid,scid,m.id,-1)} onDown={()=>onMoveModel(cid,scid,m.id,1)}/>}
         {onToggleCompare&&(
           <button onClick={()=>onToggleCompare(brand.id,cid,m.id)} title={inCompare?'הסר מהשוואה':'הוסף להשוואה'}
             style={{background:'none',border:'none',fontSize:14,cursor:'pointer',padding:'0 3px',color:inCompare?'#e65100':'var(--sub)',fontWeight:'bold'}}>
@@ -329,7 +329,7 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
           </button>
         )}
         <button onClick={()=>onToggleFav(m.id)} style={{background:'none',border:'none',fontSize:13,cursor:'pointer',padding:'0 4px'}}>{favorites.has(m.id)?'⭐':'☆'}</button>
-        {admin&&<button onClick={()=>onDelModel(cid,m.id,scid)} style={{background:'none',border:'none',color:'#e53935',cursor:'pointer',fontSize:13,padding:'0 8px'}}>🗑</button>}
+        {admin&&editMode&&<button aria-label={'מחק את הדגם '+m.name} onClick={()=>onDelModel(cid,m.id,scid)} style={{background:'none',border:'none',color:'#e53935',cursor:'pointer',fontSize:13,padding:'0 8px'}}>🗑</button>}
       </div>
     );
   };
@@ -338,7 +338,8 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
     <div style={{borderBottom:'1px solid var(--border)'}}>
       <div onClick={()=>setOpen(v=>!v)} style={{padding:'11px 14px',background:brand.color,color:'#fff',display:'flex',alignItems:'center',cursor:'pointer',userSelect:'none',gap:6}}>
         <span style={{flex:1,fontWeight:'bold',fontSize:14}}>{brand.name}</span>
-        {admin&&!sidebarFilter&&onMoveBrand&&<MoveBtns color="#fff" what="את המותג" canUp={!!canMoveUp} canDown={!!canMoveDown} onUp={()=>onMoveBrand(-1)} onDown={()=>onMoveBrand(1)}/>}
+        {admin&&editMode&&!sidebarFilter&&onMoveBrand&&<MoveBtns color="#fff" what="את המותג" canUp={!!canMoveUp} canDown={!!canMoveDown} onUp={()=>onMoveBrand(-1)} onDown={()=>onMoveBrand(1)}/>}
+        {admin&&editMode&&onDelBrand&&<button type="button" aria-label="מחק את המותג" title="מחק מותג (נשמר בסל המחזור)" onClick={e=>{e.stopPropagation();onDelBrand(brand);}} style={{background:'rgba(255,255,255,.18)',border:'1px solid rgba(255,255,255,.7)',color:'#fff',borderRadius:4,width:24,height:20,lineHeight:'16px',padding:0,margin:'0 3px',cursor:'pointer',fontSize:12,flexShrink:0}}>🗑</button>}
         {brand.hidden && <span title="מותג מוסתר מצופים" style={{fontSize:11,opacity:.9}}>🙈</span>}
         <span style={{fontSize:11,opacity:.8}}>{open?'▲':'▼'}</span>
       </div>
@@ -367,11 +368,11 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
                 }
                 {admin&&editCat?.id!==c.id&&(
                   <div style={{display:'flex',flexShrink:0,paddingLeft:4,alignItems:'center'}}>
-                    {!sidebarFilter&&onMoveCat&&<MoveBtns color={brand.color} what="את הקטגוריה" canUp={ci>0} canDown={ci<brand.categories.length-1} onUp={()=>onMoveCat(c.id,-1)} onDown={()=>onMoveCat(c.id,1)}/>}
+                    {editMode&&!sidebarFilter&&onMoveCat&&<MoveBtns color={brand.color} what="את הקטגוריה" canUp={ci>0} canDown={ci<brand.categories.length-1} onUp={()=>onMoveCat(c.id,-1)} onDown={()=>onMoveCat(c.id,1)}/>}
                     <button onClick={e=>{e.stopPropagation();startAdd(c.id,null);}} title="הוסף דגם" style={{background:'none',border:'none',color:brand.color,cursor:'pointer',fontSize:20,fontWeight:'bold',padding:'2px 6px',lineHeight:1}}>+</button>
                     <button onClick={e=>{e.stopPropagation();setAddingSub(c.id);setNewSubName('');}} title="הוסף תת-קטגוריה" style={{background:'none',border:'none',color:'#7b1fa2',cursor:'pointer',fontSize:14,padding:'2px 4px'}}>📂</button>
-                    <button onClick={e=>{e.stopPropagation();setEditCat({id:c.id,name:c.name});}} style={{background:'none',border:'none',color:'var(--sub)',cursor:'pointer',fontSize:13,padding:'2px 4px'}}>✏</button>
-                    <button onClick={e=>{e.stopPropagation();onDelCat(c.id);}} style={{background:'none',border:'none',color:'#e53935',cursor:'pointer',fontSize:13,padding:'2px 5px'}}>🗑</button>
+                    {editMode&&<button aria-label="שנה שם לקטגוריה" onClick={e=>{e.stopPropagation();setEditCat({id:c.id,name:c.name});}} style={{background:'none',border:'none',color:'var(--sub)',cursor:'pointer',fontSize:13,padding:'2px 4px'}}>✏</button>}
+                    {editMode&&<button aria-label="מחק את הקטגוריה" onClick={e=>{e.stopPropagation();onDelCat(c.id);}} style={{background:'none',border:'none',color:'#e53935',cursor:'pointer',fontSize:13,padding:'2px 5px'}}>🗑</button>}
                   </div>
                 )}
                 {editor&&!admin&&editCat?.id!==c.id&&(
@@ -412,10 +413,10 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
                         }
                         {admin&&editSub?.id!==sc.id&&(
                           <div style={{display:'flex',flexShrink:0,paddingLeft:4,alignItems:'center'}}>
-                            {!sidebarFilter&&onMoveSub&&<MoveBtns color="#7b1fa2" what="את תת-הקטגוריה" canUp={si>0} canDown={si<subCats.length-1} onUp={()=>onMoveSub(c.id,sc.id,-1)} onDown={()=>onMoveSub(c.id,sc.id,1)}/>}
+                            {editMode&&!sidebarFilter&&onMoveSub&&<MoveBtns color="#7b1fa2" what="את תת-הקטגוריה" canUp={si>0} canDown={si<subCats.length-1} onUp={()=>onMoveSub(c.id,sc.id,-1)} onDown={()=>onMoveSub(c.id,sc.id,1)}/>}
                             <button onClick={e=>{e.stopPropagation();startAdd(c.id,sc.id);}} style={{background:'none',border:'none',color:brand.color,cursor:'pointer',fontSize:18,fontWeight:'bold',padding:'2px 5px',lineHeight:1}}>+</button>
-                            <button onClick={e=>{e.stopPropagation();setEditSub({id:sc.id,name:sc.name});}} style={{background:'none',border:'none',color:'var(--sub)',cursor:'pointer',fontSize:12,padding:'2px 4px'}}>✏</button>
-                            <button onClick={e=>{e.stopPropagation();onDelSubCat(c.id,sc.id);}} style={{background:'none',border:'none',color:'#e53935',cursor:'pointer',fontSize:12,padding:'2px 5px'}}>🗑</button>
+                            {editMode&&<button aria-label="שנה שם לתת-קטגוריה" onClick={e=>{e.stopPropagation();setEditSub({id:sc.id,name:sc.name});}} style={{background:'none',border:'none',color:'var(--sub)',cursor:'pointer',fontSize:12,padding:'2px 4px'}}>✏</button>}
+                            {editMode&&<button aria-label="מחק את תת-הקטגוריה" onClick={e=>{e.stopPropagation();onDelSubCat(c.id,sc.id);}} style={{background:'none',border:'none',color:'#e53935',cursor:'pointer',fontSize:12,padding:'2px 5px'}}>🗑</button>}
                           </div>
                         )}
                         {editor&&!admin&&editSub?.id!==sc.id&&(
