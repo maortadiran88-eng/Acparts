@@ -1,19 +1,61 @@
+// ══════════ העלאת תמונות: איכות גבוהה ══════════
+// קודם כל תמונה כווצה ל-1200 פיקסלים ונשמרה כ-JPEG באיכות 72%. בשרטוטי פיצוץ (קווים דקים ומספרים קטנים) זה גרם לטשטוש,
+// ובהגדלה אי אפשר היה לקרוא כלום. עכשיו:
+//  1. תמונה שכבר בגודל סביר נשמרת כמו שהיא, בלי שום עיבוד ובלי אובדן איכות.
+//  2. תמונה גדולה מוקטנת רק עד הצורך (עד 3000 פיקסלים בצלע הארוכה). קובץ PNG נשאר PNG (בלי אובדן איכות) אם זה נכנס בגודל, ואחרת JPEG באיכות גבוהה.
+//  3. קובץ שאי אפשר לפתוח (למשל HEIC של אייפון) מחזיר הודעת שגיאה ברורה, במקום לא לעשות כלום.
+const IMG_MAX_DIM = 3000;            // צלע ארוכה מקסימלית, בפיקסלים
+const IMG_MAX_CHARS = 2600000;       // גודל מקסימלי לתמונה אחת (כ-1.9MB). השרת מקבל עד 4,000,000. תמונה גדולה יותר נטענת לאט בכל כניסה לדגם
+const IMG_PASS_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];   // הסוגים שהשרת מקבל
+const imgReadDataUrl = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(new Error('קריאת הקובץ נכשלה')); r.readAsDataURL(f); });
 async function compressImg(file) {
-  return new Promise(res => {
-    const r = new FileReader();
-    r.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        let w=img.width,h=img.height,M=1200;
-        if(w>M||h>M){const ratio=Math.min(M/w,M/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
-        c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
-        res(c.toDataURL('image/jpeg',.72));
-      };
-      img.src=e.target.result;
+  const objUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error(/heic|heif/i.test((file.type || '') + (file.name || ''))
+        ? 'קובץ HEIC של אייפון אינו נתמך בדפדפן. שמור או שלח את התמונה כ-JPG'
+        : 'לא ניתן לפתוח את הקובץ כתמונה (הקובץ פגום או שהפורמט אינו נתמך)'));
+      i.src = objUrl;
+    });
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if (!w || !h) throw new Error('התמונה ריקה');
+
+    // 1) תמונה שלא צריך לשנות: שומרים את הקובץ המקורי
+    if (IMG_PASS_TYPES.includes(file.type) && Math.max(w, h) <= IMG_MAX_DIM && file.size * 1.3334 + 40 <= IMG_MAX_CHARS) {
+      const du = await imgReadDataUrl(file);
+      if (du.length <= IMG_MAX_CHARS && du.startsWith('data:' + file.type + ';base64,')) return du;
+    }
+
+    // 2) מקטינים רק אם צריך, בשלבים (איכות גבוהה יותר מהקטנה בבת אחת), על רקע לבן (כדי שרקע שקוף לא יהפוך לשחור ב-JPEG)
+    const scaled = (W, H) => {
+      let cur = img, cw = w, ch = h;
+      while (cw / 2 >= W && ch / 2 >= H) {
+        const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(cw / 2)); c.height = Math.max(1, Math.round(ch / 2));
+        const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cur, 0, 0, c.width, c.height);
+        cur = c; cw = c.width; ch = c.height;
+      }
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.drawImage(cur, 0, 0, W, H);
+      return c;
     };
-    r.readAsDataURL(file);
-  });
+    const lossless = /png|gif|bmp|svg|tif/i.test(file.type || '');   // שרטוטים וצילומי מסך: קודם מנסים בלי אובדן איכות
+    let k = Math.min(1, IMG_MAX_DIM / Math.max(w, h));
+    for (let round = 0; round < 8; round++) {
+      const c = scaled(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+      const tries = [];
+      if (lossless && round < 2) tries.push(['image/png']);
+      [0.92, 0.86, 0.8].forEach(q => tries.push(['image/jpeg', q]));
+      for (const [t, q] of tries) {
+        const du = c.toDataURL(t, q);
+        if (du.startsWith('data:' + t + ';base64,') && du.length <= IMG_MAX_CHARS) return du;
+      }
+      k *= 0.85;
+      if (Math.max(w, h) * k < 600) break;
+    }
+    throw new Error('לא הצלחתי לכווץ את התמונה לגודל מתאים');
+  } finally { URL.revokeObjectURL(objUrl); }
 }
 
 const updBrands=(brands,bid,cid,mid,fn)=>brands.map(b=>b.id!==bid?b:{...b,categories:b.categories.map(c=>c.id!==cid?c:{...c,models:c.models.map(m=>m.id!==mid?m:fn(m))})});
@@ -352,47 +394,20 @@ function HelpModal({role,onClose}){
   );
 }
 
-// ══════════ תמונות מהענן ══════════
-// תמונות שנשמרו בענן מופיעות בנתונים כ-"sb:<id>" וטוענות רק כשצריך. תמונה רגילה (URL / data) מוצגת כמו שהיא.
-const SB_IMG_CACHE = new Map();   // הפניה -> data URL
-const SB_IMG_PENDING = new Map(); // הפניה -> Promise
-let SB_IMG_ACTIVE = 0; const SB_IMG_WAIT = [];
+const SB_IMG_CACHE = new Map();
+const SB_IMG_PENDING = new Map();
 const sbIsRef = s => typeof s === 'string' && s.startsWith('sb:');
-function sbImgSlot() { return new Promise(res => { const go = () => { if (SB_IMG_ACTIVE < 4) { SB_IMG_ACTIVE++; res(); } else SB_IMG_WAIT.push(go); }; go(); }); }
-function sbImgDone() { SB_IMG_ACTIVE--; const n = SB_IMG_WAIT.shift(); if (n) n(); }
 async function sbToDataUrl(src) {
   if (!sbIsRef(src)) return src;
   if (SB_IMG_CACHE.has(src)) return SB_IMG_CACHE.get(src);
-  if (SB_IMG_PENDING.has(src)) return SB_IMG_PENDING.get(src);
-  const p = (async () => {
-    await sbImgSlot();
-    try {
-      const snap = await db.collection('img').doc(src.slice(3)).get();
-      const u = snap.exists ? snap.data().d : '';
-      if (u) SB_IMG_CACHE.set(src, u);
-      return u || '';
-    } finally { sbImgDone(); SB_IMG_PENDING.delete(src); }
-  })();
-  SB_IMG_PENDING.set(src, p);
-  return p;
+  const snap = await db.collection('img').doc(src.slice(3)).get();
+  const u = snap.exists ? snap.data().d : '';
+  if (u) SB_IMG_CACHE.set(src, u);
+  return u || '';
 }
 function SbImg({src, style, ...rest}) {
   const [url, setUrl] = useState(() => sbIsRef(src) ? (SB_IMG_CACHE.get(src) || '') : src);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    setFailed(false);
-    if (!sbIsRef(src)) { setUrl(src); return; }
-    if (SB_IMG_CACHE.has(src)) { setUrl(SB_IMG_CACHE.get(src)); return; }
-    setUrl('');
-    sbToDataUrl(src).then(u => { if (!alive) return; if (u) setUrl(u); else setFailed(true); }).catch(() => { if (alive) setFailed(true); });
-    return () => { alive = false; };
-  }, [src]);
-  if (url) return <img src={url} style={style} {...rest}/>;
-  return <div style={{...(style||{}), display:'flex', alignItems:'center', justifyContent:'center', background:'var(--card2)', color:'var(--sub)', fontSize:11, minHeight:40, minWidth:60}}>{failed ? 'התמונה לא זמינה' : 'טוען תמונה…'}</div>;
+  useEffect(() => { let alive = true; if (!sbIsRef(src)) { setUrl(src); return; } sbToDataUrl(src).then(u => { if (alive) setUrl(u); }); return () => { alive = false; }; }, [src]);
+  return url ? <img src={url} style={style} {...rest}/> : <div style={style}>טוען תמונה…</div>;
 }
-
-// ══════════ הדפסה בטוחה ══════════
-// ערכים שנכנסים לחלונות PDF/הדפסה (שנכתבים ב-document.write ופועלים באותו אתר) חייבים לעבור escape,
-// אחרת עורך יכול להסתיר קוד בשם חלק ולהריץ אותו בדפדפן של מי שלוחץ "PDF" (כולל גניבת כניסה).
 const escHtml = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

@@ -22,6 +22,17 @@ function App() {
   const [query,          setQuery]          = useState('');
   const [imgModal,       setImgModal]       = useState({imgs:[],idx:0});
   const [imgZoom,        setImgZoom]        = useState(1);
+  const [imgBusy,        setImgBusy]        = useState('');     // הודעת התקדמות בזמן עיבוד תמונות שהועלו
+  const [imgNat,         setImgNat]         = useState(null);   // הגודל האמיתי של התמונה שפתוחה בחלון הזום [רוחב, גובה]
+  const imgBoxRef = useRef(null);
+  const [,setImgTick] = useState(0);
+  useEffect(() => { setImgNat(null); }, [imgModal.idx, imgModal.imgs]);
+  useEffect(() => {      // שינוי גודל החלון: מחשבים מחדש את הרוחב שהתמונה מתאימה אליו
+    if (!imgModal.imgs.length) return;
+    const f = () => setImgTick(t => t+1);
+    window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, [imgModal.imgs.length]);
   const [cart,           setCart]           = useState([]);
   const [showCart,       setShowCart]       = useState(false);
   const [showNotif,      setShowNotif]      = useState(false);
@@ -343,9 +354,16 @@ function App() {
   });
 
   const handleImgUpload = async (e,bid,cid,mid) => {
-    const files = Array.from(e.target.files); if (!files.length) return;
-    const b64 = await Promise.all(files.map(compressImg));
-    mutM(bid,cid,mid, m=>({...m,images:[...(m.images||[]),...b64]}));
+    const input = e.target, files = Array.from(input.files); if (!files.length) return;
+    const good = [], bad = [];
+    for (let i = 0; i < files.length; i++) {   // אחת אחרי השנייה: כמה תמונות גדולות במקביל מעמיסות על הזיכרון, במיוחד בטלפון
+      setImgBusy(files.length > 1 ? `מעבד תמונה ${i+1} מתוך ${files.length}...` : 'מעבד את התמונה...');
+      try { good.push(await compressImg(files[i])); } catch (err) { bad.push(files[i].name + ': ' + ((err && err.message) || 'שגיאה')); }
+    }
+    setImgBusy('');
+    try { input.value = ''; } catch {}   // כדי שאפשר יהיה לבחור שוב את אותו קובץ
+    if (good.length) mutM(bid,cid,mid, m=>({...m,images:[...(m.images||[]),...good]}));
+    if (bad.length) alert((good.length ? 'חלק מהתמונות לא הועלו:' : 'התמונה לא הועלתה:') + '\n\n' + bad.join('\n'));
   };
 
   const addToCart = (bid,cid,mid,pid) => {
@@ -890,6 +908,8 @@ function App() {
       </div>
 
 
+      {imgBusy&&<div role="status" style={{position:'fixed',bottom:16,left:'50%',transform:'translateX(-50%)',zIndex:950,background:'var(--text)',color:'var(--card)',padding:'9px 18px',borderRadius:22,fontSize:13,fontWeight:700,boxShadow:'0 4px 16px rgba(0,0,0,.3)'}}>⏳ {imgBusy}</div>}
+
       {/* IMAGE MODAL */}
       {imgModal.imgs.length>0&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.93)',zIndex:900,display:'flex',flexDirection:'column'}} onClick={()=>setImgModal({imgs:[],idx:0})}>
@@ -902,8 +922,16 @@ function App() {
             <span style={{color:'rgba(255,255,255,.7)',fontSize:12}}>{Math.round(imgZoom*100)}%{imgModal.imgs.length>1?` | ${imgModal.idx+1}/${imgModal.imgs.length}`:''}</span>
             <button onClick={()=>setImgModal({imgs:[],idx:0})} style={{background:'#e53935',border:'none',borderRadius:8,padding:'8px 14px',cursor:'pointer',fontSize:14,fontWeight:'bold',color:'#fff'}}>✕</button>
           </div>
-          <div style={{flex:1,overflow:'auto',display:'flex',justifyContent:'center',padding:16,alignItems:'flex-start'}} onClick={e=>e.stopPropagation()}>
-            <SbImg src={imgModal.imgs[imgModal.idx]} style={{transform:`scale(${imgZoom})`,transformOrigin:'top center',transition:'transform .2s',maxWidth:imgZoom<=1?'100%':'none'}} alt="שרטוט"/>
+          {/* הזום יחסי לגודל שבו התמונה נכנסת במסך (100% = מתאימה לרוחב החלון, אבל לא גדולה מגודלה האמיתי).
+              כך גם תמונה גדולה ברזולוציה גבוהה מגדילה בהדרגה, וכל חלקיה נגישים בגלילה (בעבר החצי הרחוק מהמרכז נחתך) */}
+          <div ref={imgBoxRef} style={{flex:1,overflow:'auto',display:'block',padding:16}} onClick={e=>e.stopPropagation()}>
+            {(()=>{
+              const cw=Math.max(100,((imgBoxRef.current&&imgBoxRef.current.clientWidth)||window.innerWidth)-32);
+              const fitW=imgNat?Math.min(imgNat[0],cw):0;
+              return <SbImg src={imgModal.imgs[imgModal.idx]} alt="שרטוט"
+                onLoad={e=>setImgNat([e.target.naturalWidth,e.target.naturalHeight])}
+                style={fitW?{display:'block',margin:'0 auto',width:Math.round(fitW*imgZoom),height:'auto',maxWidth:'none',transition:'width .15s'}:{display:'block',margin:'0 auto',maxWidth:'100%'}}/>;
+            })()}
           </div>
         </div>
       )}
