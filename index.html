@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://jzwufrstnriqwltcaqiy.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -368,7 +369,8 @@ body{background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-
 .tc-page-title{border-inline-start:6px solid var(--primary);padding-inline-start:12px}
 .tc-table thead th{background:var(--text);color:var(--card);text-transform:none;font-size:12px;letter-spacing:.3px;border-bottom:0}
 .dark .tc-table thead th{background:var(--card2);color:var(--text);border-bottom:2px solid var(--primary)}
-.tc-table tbody td{font-variant-numeric:tabular-nums}
+.tc-table thead th input{color:inherit}
+  .tc-table tbody td{font-variant-numeric:tabular-nums}
 .tc-table tbody td:nth-child(n+4){font-family:var(--mono);font-size:12.5px}
 .tc-meta,.tt::after{font-family:var(--mono)}
 .hero-search{border:1.5px solid var(--text);border-radius:var(--radius-md);box-shadow:4px 4px 0 var(--border2)}
@@ -383,7 +385,8 @@ input:focus,textarea:focus,select:focus{border-radius:var(--radius-md)}
 <body>
 <div id="root"></div>
 
-<script src="js/localdb.js"></script>
+<script src="js/config.js?v=sb1"></script>
+<script src="js/supabasedb.js?v=sb1"></script>
 
 <script>
   Babel.registerPreset("my-react-env", {
@@ -394,14 +397,14 @@ input:focus,textarea:focus,select:focus{border-radius:var(--radius-md)}
   });
 </script>
 
-<script type="text/babel" data-presets="my-react-env" src="js/constants.js?v=1791432639"></script>
-<script type="text/babel" data-presets="my-react-env" src="js/storage.js?v=1791432639"></script>
-<script type="text/babel" data-presets="my-react-env" src="js/helpers.js?v=1791432639"></script>
-<script type="text/babel" data-presets="my-react-env" src="js/components.js?v=1791432639"></script>
-<script type="text/babel" data-presets="my-react-env" src="js/modals.js?v=1791432639"></script>
-<script type="text/babel" data-presets="my-react-env" src="js/ModelView.js?v=1791432639"></script>
-<script type="text/babel" data-presets="my-react-env" src="js/compare.js?v=1791432639"></script>
-<script type="text/babel" data-presets="my-react-env" src="js/makat_review.js?v=1791432639"></script>
-<script type="text/babel" data-presets="my-react-env" src="js/App.js?v=1791432639"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/constants.js?v=sb1"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/storage.js?v=sb1"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/helpers.js?v=sb1"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/components.js?v=sb1"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/modals.js?v=sb1"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/ModelView.js?v=sb1"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/compare.js?v=sb1"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/makat_review.js?v=sb1"></script>
+<script type="text/babel" data-presets="my-react-env" src="js/App.js?v=sb1"></script>
 </body>
 </html>
