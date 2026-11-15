@@ -45,7 +45,7 @@ function LoginScreen({data,onLogin}){
             ⚠️ {data.disclaimer||'מערכת זו מיועדת לשימוש עובדי תדיראן בלבד.'}
           </div>
         </div>
-        <div style={{textAlign:'center',color:'var(--sub)',fontSize:11.5,marginTop:16,fontWeight:500}}>Tadiran VRF · Professional Spare Parts Catalog</div>
+        <div style={{textAlign:'center',color:'var(--sub)',fontSize:11.5,marginTop:16,fontWeight:500}}>Tadiran · Professional Spare Parts Catalog</div>
       </div>
       </div>
     </div>
@@ -147,7 +147,7 @@ function HomeScreen({data,onNav,recent,favorites,onToggleFav,loginRole,reports,t
       {/* ── HERO ── */}
       <div style={{position:'relative',textAlign:'center',padding:'34px 12px 30px'}}>
         <div style={{position:'relative',zIndex:1}}>
-          <div className="tc-page-title" style={{fontSize:26,marginBottom:6}}>קטלוג חלקי חילוף VRF</div>
+          <div className="tc-page-title" style={{fontSize:26,marginBottom:6}}>קטלוג חלקי חילוף</div>
           <div className="tc-body" style={{marginBottom:22,color:'var(--sub)'}}>חיפוש חלקי חילוף לפי מק"ט, דגם או שם חלק</div>
 
           <div className="hero-search-wrap">
@@ -235,7 +235,17 @@ function HomeScreen({data,onNav,recent,favorites,onToggleFav,loginRole,reports,t
 }
 
 // ══════════ SIDEBAR BRAND ══════════
-function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav,onNav,onAddModel,onDelModel,onAddCat,onEditCat,onDelCat,onAddSubCat,onEditSubCat,onDelSubCat,sidebarFilter,compareList,onToggleCompare}){
+// ══════════ כפתורי הזזה: ↑ מעלה ↓ מוריד (מנהל בלבד) ══════════
+function MoveBtns({onUp,onDown,canUp,canDown,color,what}){
+  const btn=(ok,fn,txt,tip)=>(
+    <button type="button" disabled={!ok} aria-label={tip+' '+what} title={ok?tip+' '+what:''}
+      onClick={e=>{e.stopPropagation();if(ok)fn();}}
+      style={{background:'none',border:'1px solid '+(ok?color:'transparent'),color:ok?color:'var(--sub)',borderRadius:4,width:20,height:20,lineHeight:'16px',padding:0,margin:0,cursor:ok?'pointer':'default',fontSize:13,fontWeight:'bold',opacity:ok?1:.3,flexShrink:0}}>{txt}</button>
+  );
+  return <span onClick={e=>e.stopPropagation()} style={{display:'inline-flex',gap:2,alignItems:'center',flexShrink:0,margin:'0 3px'}}>{btn(canUp,onUp,'↑','הזז למעלה')}{btn(canDown,onDown,'↓','הזז למטה')}</span>;
+}
+
+function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav,onNav,onAddModel,onDelModel,onAddCat,onEditCat,onDelCat,onAddSubCat,onEditSubCat,onDelSubCat,sidebarFilter,compareList,onToggleCompare,canMoveUp,canMoveDown,onMoveBrand,onMoveCat,onMoveSub}){
   const[open,setOpen]=useState(false);const[openCats,setOpenCats]=useState({});const[openSubs,setOpenSubs]=useState({});
   const[addingMod,setAddingMod]=useState(null);const[newModName,setNewModName]=useState('');
   const[editCat,setEditCat]=useState(null);const[addingCat,setAddingCat]=useState(false);const[newCatName,setNewCatName]=useState('');
@@ -323,11 +333,12 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
     <div style={{borderBottom:'1px solid var(--border)'}}>
       <div onClick={()=>setOpen(v=>!v)} style={{padding:'11px 14px',background:brand.color,color:'#fff',display:'flex',alignItems:'center',cursor:'pointer',userSelect:'none',gap:6}}>
         <span style={{flex:1,fontWeight:'bold',fontSize:14}}>{brand.name}</span>
+        {admin&&!sidebarFilter&&onMoveBrand&&<MoveBtns color="#fff" what="את המותג" canUp={!!canMoveUp} canDown={!!canMoveDown} onUp={()=>onMoveBrand(-1)} onDown={()=>onMoveBrand(1)}/>}
         {brand.hidden && <span title="מותג מוסתר מצופים" style={{fontSize:11,opacity:.9}}>🙈</span>}
         <span style={{fontSize:11,opacity:.8}}>{open?'▲':'▼'}</span>
       </div>
       {open&&<>
-        {brand.categories.map(c=>{
+        {brand.categories.map((c,ci)=>{
           const q=sidebarFilter?sidebarFilter.toLowerCase():'';
           const mm=m=>!q||m.name.toLowerCase().includes(q)||(m.synonyms||[]).some(s=>s.toLowerCase().includes(q));
           const visibleModels=(sidebarFilter?c.models.filter(mm):c.models).filter(m=>canSeeHidden||!m.hidden);
@@ -350,7 +361,8 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
                    </div>
                 }
                 {admin&&editCat?.id!==c.id&&(
-                  <div style={{display:'flex',flexShrink:0,paddingLeft:4}}>
+                  <div style={{display:'flex',flexShrink:0,paddingLeft:4,alignItems:'center'}}>
+                    {!sidebarFilter&&onMoveCat&&<MoveBtns color={brand.color} what="את הקטגוריה" canUp={ci>0} canDown={ci<brand.categories.length-1} onUp={()=>onMoveCat(c.id,-1)} onDown={()=>onMoveCat(c.id,1)}/>}
                     <button onClick={e=>{e.stopPropagation();startAdd(c.id,null);}} title="הוסף דגם" style={{background:'none',border:'none',color:brand.color,cursor:'pointer',fontSize:20,fontWeight:'bold',padding:'2px 6px',lineHeight:1}}>+</button>
                     <button onClick={e=>{e.stopPropagation();setAddingSub(c.id);setNewSubName('');}} title="הוסף תת-קטגוריה" style={{background:'none',border:'none',color:'#7b1fa2',cursor:'pointer',fontSize:14,padding:'2px 4px'}}>📂</button>
                     <button onClick={e=>{e.stopPropagation();setEditCat({id:c.id,name:c.name});}} style={{background:'none',border:'none',color:'var(--sub)',cursor:'pointer',fontSize:13,padding:'2px 4px'}}>✏</button>
@@ -375,7 +387,7 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
                 {renderAddBox(c.id,null)}
                 {visibleModels.map(m=>renderModelRow(m,c.id,null))}
                 {!visibleModels.length&&!sidebarFilter&&!subCats.length&&<div style={{padding:'7px 26px',color:'var(--sub)',fontSize:12}}>אין דגמים</div>}
-                {(sidebarFilter?visibleSubs:subCats).map(sc=>{
+                {(sidebarFilter?visibleSubs:subCats).map((sc,si)=>{
                   const scModels=(sidebarFilter?sc.models.filter(mm):sc.models).filter(m=>canSeeHidden||!m.hidden);
                   if(sidebarFilter&&!scModels.length)return null;
                   return(
@@ -394,7 +406,8 @@ function SidebarBrand({brand,sel,editor,admin,canSeeHidden,favorites,onToggleFav
                            </div>
                         }
                         {admin&&editSub?.id!==sc.id&&(
-                          <div style={{display:'flex',flexShrink:0,paddingLeft:4}}>
+                          <div style={{display:'flex',flexShrink:0,paddingLeft:4,alignItems:'center'}}>
+                            {!sidebarFilter&&onMoveSub&&<MoveBtns color="#7b1fa2" what="את תת-הקטגוריה" canUp={si>0} canDown={si<subCats.length-1} onUp={()=>onMoveSub(c.id,sc.id,-1)} onDown={()=>onMoveSub(c.id,sc.id,1)}/>}
                             <button onClick={e=>{e.stopPropagation();startAdd(c.id,sc.id);}} style={{background:'none',border:'none',color:brand.color,cursor:'pointer',fontSize:18,fontWeight:'bold',padding:'2px 5px',lineHeight:1}}>+</button>
                             <button onClick={e=>{e.stopPropagation();setEditSub({id:sc.id,name:sc.name});}} style={{background:'none',border:'none',color:'var(--sub)',cursor:'pointer',fontSize:12,padding:'2px 4px'}}>✏</button>
                             <button onClick={e=>{e.stopPropagation();onDelSubCat(c.id,sc.id);}} style={{background:'none',border:'none',color:'#e53935',cursor:'pointer',fontSize:12,padding:'2px 5px'}}>🗑</button>

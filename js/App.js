@@ -1,5 +1,13 @@
 const { useState, useEffect, useMemo, useRef } = React;
 
+// מזיז פריט (לפי id) מקום אחד למעלה (dir=-1) או למטה (dir=1) ברשימה. בקצה הרשימה לא קורה כלום
+const moveById = (arr, id, dir) => {
+  const i = (arr||[]).findIndex(x => x.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= arr.length) return arr;
+  const n = arr.slice(); [n[i], n[j]] = [n[j], n[i]];
+  return n;
+};
+
 function App() {
   const [data,           setData]           = useState(null);
   const [loaded,         setLoaded]         = useState(false);
@@ -70,7 +78,6 @@ function App() {
   useEffect(() => { document.documentElement.className=dark?'dark':''; document.body.style.background='var(--bg)'; }, [dark]);
   useEffect(() => { const t=setInterval(()=>setNow(new Date()),1000); return()=>clearInterval(t); }, []);
 
-  // טעינה ראשונית: אם יש כניסה שמורה ותקפה — טוענים את הקטלוג. אחרת מסך כניסה (הנתונים נטענים רק אחרי כניסה עם סיסמה)
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -91,7 +98,6 @@ function App() {
       setData({...base, welcomeTitle: pub.welcomeTitle||base.welcomeTitle, welcomeSub: pub.welcomeSub||base.welcomeSub, disclaimer: pub.disclaimer||base.disclaimer, bootError});
       setLoaded(true);
     })();
-    // כניסה שפגה באמצע העבודה (למשל הוחלפה הסיסמה): חוזרים למסך הכניסה
     const onExpired = () => { alert('ההתחברות פגה. יש להיכנס מחדש.'); location.reload(); };
     window.addEventListener('sb-expired', onExpired);
     return () => { alive = false; window.removeEventListener('sb-expired', onExpired); };
@@ -427,7 +433,6 @@ function App() {
   };
 
   const expJSON = async () => {
-    // תמונות מהענן (sb:...) מוטמעות בגיבוי, כדי שהקובץ יהיה שלם וניתן לשחזור בכל מקום
     let out = data;
     try {
       const refs = new Set();
@@ -471,7 +476,7 @@ function App() {
     setLoaded(false);
     try {
       const d = await fbLoad();
-      firstLoad.current = true;   // הטעינה הראשונה אינה "עריכה", לא לשמור אותה חזרה
+      firstLoad.current = true;
       setData(d||INIT()); setLoginRole(role); setLoginLabel(label||role); setLoaded(true);
     } catch(e) {
       alert('הכניסה הצליחה אבל טעינת הקטלוג נכשלה: '+(e.message||e)+'\nנסה שוב.');
@@ -674,6 +679,11 @@ function App() {
                   onAddSubCat={(cid,name)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:[...(c.subCategories||[]),{id:gid(),name,models:[]}]})})}))}
                   onEditSubCat={(cid,scid,name)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:(c.subCategories||[]).map(sc=>sc.id!==scid?sc:{...sc,name})})})}))}
                   onDelSubCat={(cid,scid)=>{if(!confirm('למחוק תת-קטגוריה?'))return;mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:(c.subCategories||[]).filter(sc=>sc.id!==scid)})})}));}}
+                  canMoveUp={data.brands.findIndex(x=>x.id===b.id)>0}
+                  canMoveDown={data.brands.findIndex(x=>x.id===b.id)<data.brands.length-1}
+                  onMoveBrand={dir=>mut(d=>({...d,brands:moveById(d.brands,b.id,dir)}))}
+                  onMoveCat={(cid,dir)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:moveById(bb.categories,cid,dir)})}))}
+                  onMoveSub={(cid,scid,dir)=>mut(d=>({...d,brands:d.brands.map(bb=>bb.id!==b.id?bb:{...bb,categories:bb.categories.map(c=>c.id!==cid?c:{...c,subCategories:moveById(c.subCategories||[],scid,dir)})})}))}
                 />
               ))}
             </div>
