@@ -443,7 +443,7 @@ function ModelView({brand,cat,model,editor,admin,viewer,hq,data,favorites,onTogg
                             <button onClick={()=>onMoveCol(col.id,1)} disabled={ci===visibleCols.length-1} style={{background:'none',border:'none',cursor:ci===visibleCols.length-1?'default':'pointer',color:ci===visibleCols.length-1?'var(--border2)':'var(--sub)',fontSize:10,padding:0,lineHeight:1}}>▶</button>
                           </div>
                           <input value={col.name} onChange={e=>onColName(col.id,e.target.value)}
-                            style={{border:'1px dashed var(--border2)',borderRadius:4,padding:'2px 5px',fontSize:12,fontWeight:700,width:'100%',minWidth:50,background:'transparent',color:'var(--inp)'}}/>
+                            style={{border:'1px dashed rgba(255,255,255,.55)',borderRadius:4,padding:'2px 5px',fontSize:12,fontWeight:700,width:'100%',minWidth:50,background:'rgba(255,255,255,.14)',color:'#fff'}}/>
                           <button onClick={()=>sortAndSave(col.id)} title={'מיין ושמור סדר לפי '+col.name} style={{background:'none',border:'none',cursor:'pointer',color:'var(--sub)',fontSize:12,padding:0,flexShrink:0}}>🔢</button>
                           {(admin||editor)&&model.columns.length>1&&<button onClick={()=>onDelCol(col.id)} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:16,padding:0,lineHeight:1,flexShrink:0}}>×</button>}
                         </div>
