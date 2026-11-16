@@ -164,7 +164,7 @@ function HomeScreen({data,onNav,recent,favorites,onToggleFav,loginRole,reports,t
 
       {/* ── BRAND BENTO GRID ── */}
       <Reveal style={{marginBottom:30}}>
-        <div className="tc-sub-title" style={{textAlign:'center',marginBottom:14}}>או בחר מותג</div>
+        <div className="tc-sub-title" style={{textAlign:'center',marginBottom:14}}>או בחר שנתון</div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:14,maxWidth:760,margin:'0 auto'}}>
           {visBrands.map((b,bi)=>{
             const st=brandStats(b);
@@ -222,7 +222,7 @@ function HomeScreen({data,onNav,recent,favorites,onToggleFav,loginRole,reports,t
 
       {/* Quick stats strip */}
       <Reveal style={{display:'flex',gap:10,marginBottom:22,flexWrap:'wrap',justifyContent:'center'}}>
-        {[['❄️','דגמים',total],['🔩','חלקים',totalParts.toLocaleString()],['🏷️','מותגים',data.brands.length]].map(([ic,lb,v])=>(
+        {[['❄️','דגמים',total],['🔩','חלקים',totalParts.toLocaleString()],['🏷️','שנתונים',data.brands.length]].map(([ic,lb,v])=>(
           <div key={lb} style={{display:'flex',alignItems:'center',gap:7,color:'var(--sub)',fontSize:12.5}}>
             <span>{ic}</span><strong style={{color:'var(--text)'}}>{v}</strong><span>{lb}</span>
           </div>

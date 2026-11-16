@@ -689,7 +689,6 @@ function App() {
                     <span className="ic">📂</span>ייבוא גיבוי (JSON)
                     <input type="file" accept=".json" onChange={e=>{impFile(e);setMenuOpen(false);}} style={{display:'none'}}/>
                   </label>
-                  <button className="menu-item" onClick={async()=>{setMenuOpen(false);if(!confirm('למחוק מהענן תמונות שאף דגם לא משתמש בהן? (לא נוגע בתמונות שהועלו בשעה האחרונה, ובתמונות שגרסאות שמורות מפנות אליהן)'))return;try{const n=await fbGcImages();alert('✅ נמחקו '+n+' תמונות שאינן בשימוש');}catch(e){alert('שגיאה: '+(e.message||e));}}}><span className="ic">🧹</span>ניקוי תמונות שאינן בשימוש</button>
                 </>}
 
                 <div className="menu-divider"/>
