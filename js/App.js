@@ -584,16 +584,18 @@ function App() {
     finally { setBkBusy(''); }
   };
   const doRestore = async e => {
-    const f = e.target.files[0]; e.target.value=''; if(!f || bkBusy) return;
-    if (!confirm('⚠️ שחזור מגיבוי יחליף את כל הקטלוג הנוכחי (שנתונים, קטגוריות, דגמים, חלקים ותמונות) בתוכן הקובץ.\n\nלהמשיך?')) return;
+    const files = Array.from(e.target.files||[]); e.target.value=''; if(!files.length || bkBusy) return;
+    const source = (files.length===1 && !files[0].webkitRelativePath) ? files[0] : files;
+    if (!confirm('⚠️ שחזור מגיבוי יחליף את כל הקטלוג הנוכחי (שנתונים, קטגוריות, דגמים, חלקים ותמונות) בתוכן הגיבוי.\n\nלהמשיך?')) return;
     setBkBusy('מתחיל שחזור...');
     try {
+      const r = await bkRestoreRead(source, setBkBusy);
+      if (r.missing && !confirm('⚠️ '+r.missing+' תמונות לא נמצאו בגיבוי ולא ישוחזרו.\n\nלהמשיך בכל זאת ולהחליף את הקטלוג?\n(ביטול = לא משנים כלום)')) return;
       try { await fbSaveSnapshot(latestData.current||data, loginLabel||loginRole, 'לפני שחזור מגיבוי'); } catch {}
-      const r = await bkRestoreRead(f, setBkBusy);
       r.data.brands.forEach(b=>b.categories.forEach(c=>(c.models||[]).forEach(m=>changedMids.current.add(m.id))));
       setData(r.data); setSel(null);
-      alert('✅ הגיבוי שוחזר: '+r.info.models+' דגמים, '+r.info.parts+' חלקים, '+r.info.images+' תמונות.'+(r.missing?'\n⚠️ '+r.missing+' תמונות לא נמצאו בקובץ.':'')+'\n\nהנתונים נשמרים כעת במסד. המתן לסימן ✓ לפני שסוגרים את הדף.');
-    } catch(e) { alert('❌ השחזור נכשל, לא שונה כלום: '+(e.message||e)); console.error(e); }
+      alert('✅ הגיבוי שוחזר: '+r.info.models+' דגמים, '+r.info.parts+' חלקים, '+r.info.images+' תמונות.'+(r.missing?'\n⚠️ '+r.missing+' תמונות לא נמצאו בגיבוי.':'')+'\n\nהנתונים נשמרים כעת במסד. המתן לסימן ✓ לפני שסוגרים את הדף.');
+    } catch(e) { alert('❌ השחזור לא בוצע, הקטלוג לא שונה.\n\n'+(e.message||e)); console.error(e); }
     finally { setBkBusy(''); }
   };
 
@@ -721,6 +723,10 @@ function App() {
                   <label className="menu-item" style={{cursor:'pointer'}}>
                     <span className="ic">♻️</span>שחזור מגיבוי
                     <input type="file" accept=".zip,.json" onChange={e=>{setMenuOpen(false);doRestore(e);}} style={{display:'none'}}/>
+                  </label>
+                  <label className="menu-item" style={{cursor:'pointer'}}>
+                    <span className="ic">📁</span>שחזור מתיקייה שחולצה
+                    <input type="file" webkitdirectory="" directory="" multiple onChange={e=>{setMenuOpen(false);doRestore(e);}} style={{display:'none'}}/>
                   </label>
                 </>}
 

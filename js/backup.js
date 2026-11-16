@@ -143,19 +143,42 @@ async function bkBackupDownload(data, progress) {
   return r;
 }
 
-// קורא קובץ גיבוי (ZIP חדש, או JSON ישן), מעלה את התמונות למסד, ומחזיר את נתוני הקטלוג המוכנים לשחזור
-async function bkRestoreRead(file, progress) {
+// מחזיר base64 של קובץ (File) בלי להסתמך על FileReader
+async function bkFileB64(f) {
+  const u8 = new Uint8Array(await f.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+const bkNorm = s => String(s).normalize('NFC');
+
+// קורא גיבוי ומחזיר את נתוני הקטלוג לשחזור, אחרי העלאת התמונות למסד.
+// source: קובץ ZIP, קובץ JSON, או רשימת קבצים מתיקייה שחולצה (webkitdirectory)
+async function bkRestoreRead(source, progress) {
   const say = progress || (() => {});
-  let parsed, zip = null, prefix = '';
+  let parsed, getB64 = null, prefix = '';
   say('קורא את הקובץ...');
-  if (/\.json$/i.test(file.name)) parsed = JSON.parse(await file.text());
-  else {
+  const isList = Array.isArray(source);
+  if (isList) {
+    const map = new Map();
+    source.forEach(f => map.set(bkNorm(f.webkitRelativePath || f.name), f));
+    const key = [...map.keys()].find(k => /(^|\/)backup\.json$/.test(k));
+    if (!key) throw new Error('לא נמצא backup.json בתיקייה שבחרת. בחר את התיקייה "גיבוי-קטלוג-..." שחולצה מה-ZIP.');
+    prefix = key.slice(0, key.length - 'backup.json'.length);
+    parsed = JSON.parse(await map.get(key).text());
+    getB64 = async rel => { const f = map.get(bkNorm(prefix + rel)); return f ? await bkFileB64(f) : null; };
+  } else if (/\.json$/i.test(source.name)) {
+    parsed = JSON.parse(await source.text());
+  } else {
     if (typeof JSZip === 'undefined') throw new Error('ספריית ה-ZIP לא נטענה. בדוק חיבור לאינטרנט ורענן את הדף.');
-    zip = await JSZip.loadAsync(file);
-    const key = Object.keys(zip.files).find(n => /(^|\/)backup\.json$/.test(n));
+    const zip = await JSZip.loadAsync(source);
+    const map = new Map();
+    Object.keys(zip.files).forEach(n => { if (!zip.files[n].dir) map.set(bkNorm(n), zip.files[n]); });
+    const key = [...map.keys()].find(k => /(^|\/)backup\.json$/.test(k));
     if (!key) throw new Error('לא נמצא backup.json בתוך ה-ZIP. זה לא קובץ גיבוי של האתר.');
     prefix = key.slice(0, key.length - 'backup.json'.length);
-    parsed = JSON.parse(await zip.file(key).async('string'));
+    parsed = JSON.parse(await map.get(key).async('string'));
+    getB64 = async rel => { const f = map.get(bkNorm(prefix + rel)); return f ? await f.async('base64') : null; };
   }
   const d = bkStrip(parsed && parsed.format === BK_FORMAT ? parsed.data : parsed);
   if (!d || !Array.isArray(d.brands)) throw new Error('הקובץ אינו גיבוי תקין של הקטלוג.');
@@ -164,16 +187,20 @@ async function bkRestoreRead(file, progress) {
   bkEachModel(d, (b, c, sc, m) => (m.images || []).forEach((img, i) => {
     if (typeof img === 'string' && (img.startsWith('zip:') || isDataImg(img))) items.push({ m, i, img });
   }));
+  // קובץ backup.json לבדו לא כולל את התמונות: עוצרים לפני שמשנים משהו
+  if (!getB64 && items.some(it => it.img.startsWith('zip:')))
+    throw new Error('הקובץ backup.json לבדו לא כולל את התמונות (הן שמורות כקבצים בתיקיות הגיבוי).\n\nכדי לשחזר עם התמונות בחר את קובץ ה-ZIP המלא, או השתמש ב"שחזור מתיקייה" ובחר את התיקייה שחולצה.');
+
   let done = 0, missing = 0;
   say('מעלה תמונות 0/' + items.length);
   await sbPool(items, 3, async it => {
     let url = it.img;
     if (url.startsWith('zip:')) {
       const rel = url.slice(4);
-      const f = zip && zip.file(prefix + rel);
-      if (!f) { missing++; it.m.images[it.i] = null; done++; return; }
+      const b64 = await getB64(rel);
+      if (!b64) { missing++; it.m.images[it.i] = null; done++; return; }
       const ext = (rel.split('.').pop() || 'jpg').toLowerCase();
-      url = 'data:' + (BK_EXT_MIME[ext] || 'image/jpeg') + ';base64,' + await f.async('base64');
+      url = 'data:' + (BK_EXT_MIME[ext] || 'image/jpeg') + ';base64,' + b64;
     }
     it.m.images[it.i] = await sbUploadImage(url);
     done++; if (done % 3 === 0 || done === items.length) say('מעלה תמונות ' + done + '/' + items.length);
