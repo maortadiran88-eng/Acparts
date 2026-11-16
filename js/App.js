@@ -13,6 +13,7 @@ function App() {
   const [loaded,         setLoaded]         = useState(false);
   const [saving,         setSaving]         = useState('');
   const [saveErr,        setSaveErr]        = useState('');
+  const [bkBusy,         setBkBusy]         = useState('');
   const [loginRole,      setLoginRole]      = useState(null);
   const [loginLabel,     setLoginLabel]     = useState('');
   const [sel,            setSel]            = useState(null);
@@ -573,6 +574,29 @@ function App() {
     a.click();
   };
 
+  const doBackup = async () => {
+    if (bkBusy) return;
+    setBkBusy('מתחיל גיבוי...');
+    try {
+      const r = await bkBackupDownload(latestData.current||data, setBkBusy);
+      alert('✅ הגיבוי הורד: '+r.info.models+' דגמים, '+r.info.parts+' חלקים, '+r.info.images+' תמונות.'+(r.missing?'\n⚠️ '+r.missing+' תמונות לא נמצאו ולא גובו.':'')+'\n\nשמור את קובץ ה-ZIP במקום בטוח (למשל OneDrive או כונן T).');
+    } catch(e) { alert('❌ שגיאה בגיבוי: '+(e.message||e)); console.error(e); }
+    finally { setBkBusy(''); }
+  };
+  const doRestore = async e => {
+    const f = e.target.files[0]; e.target.value=''; if(!f || bkBusy) return;
+    if (!confirm('⚠️ שחזור מגיבוי יחליף את כל הקטלוג הנוכחי (שנתונים, קטגוריות, דגמים, חלקים ותמונות) בתוכן הקובץ.\n\nלהמשיך?')) return;
+    setBkBusy('מתחיל שחזור...');
+    try {
+      try { await fbSaveSnapshot(latestData.current||data, loginLabel||loginRole, 'לפני שחזור מגיבוי'); } catch {}
+      const r = await bkRestoreRead(f, setBkBusy);
+      r.data.brands.forEach(b=>b.categories.forEach(c=>(c.models||[]).forEach(m=>changedMids.current.add(m.id))));
+      setData(r.data); setSel(null);
+      alert('✅ הגיבוי שוחזר: '+r.info.models+' דגמים, '+r.info.parts+' חלקים, '+r.info.images+' תמונות.'+(r.missing?'\n⚠️ '+r.missing+' תמונות לא נמצאו בקובץ.':'')+'\n\nהנתונים נשמרים כעת במסד. המתן לסימן ✓ לפני שסוגרים את הדף.');
+    } catch(e) { alert('❌ השחזור נכשל, לא שונה כלום: '+(e.message||e)); console.error(e); }
+    finally { setBkBusy(''); }
+  };
+
   const impFile = e => {
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
@@ -638,6 +662,13 @@ function App() {
           <span className="tc-meta" style={{fontFamily:'monospace',flexShrink:0}}>
             {now.toLocaleDateString('he-IL',{day:'2-digit',month:'2-digit'})} · {now.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}
           </span>
+          {bkBusy&&ReactDOM.createPortal(<div role="status" style={{position:'fixed',inset:0,zIndex:99999,background:'rgba(0,0,0,.55)',display:'flex',alignItems:'center',justifyContent:'center',direction:'rtl'}}>
+            <div style={{background:'var(--card,#fff)',color:'var(--text,#111)',borderRadius:14,padding:'22px 28px',minWidth:260,textAlign:'center',boxShadow:'0 10px 40px rgba(0,0,0,.4)'}}>
+              <div style={{width:32,height:32,margin:'0 auto 12px',border:'3px solid var(--border2,#ccc)',borderTop:'3px solid var(--cyan,#0af)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>
+              <div style={{fontWeight:700,fontSize:14}}>{bkBusy}</div>
+              <div style={{fontSize:12,opacity:.7,marginTop:6}}>אל תסגור את הדף</div>
+            </div>
+          </div>, document.body)}
           {saving==='saving'&&<span className="tt tt-hdr" data-tt="שומר..." style={{fontSize:11,flexShrink:0}}>💾</span>}
           {saving==='saved' &&<span className="tt tt-hdr" data-tt="נשמר" style={{fontSize:11,color:'var(--green)',flexShrink:0}}>✓</span>}
           {saving==='error' &&<button onClick={()=>{alert('שגיאת שמירה: '+saveErr);runSave();}} style={{fontSize:11,color:'#fff',background:'var(--red)',border:'none',borderRadius:5,padding:'3px 7px',cursor:'pointer',flexShrink:0}}>⚠</button>}
@@ -686,10 +717,10 @@ function App() {
                   <button className="menu-item danger" onClick={()=>{setShowBulkDel(true);setMenuOpen(false);}}><span className="ic">🗑</span>מחיקה גורפת</button>
                   <div className="menu-divider"/>
                   <button className="menu-item" onClick={()=>{expXLS();setMenuOpen(false);}}><span className="ic">📊</span>ייצוא ל-Excel</button>
-                  <button className="menu-item" onClick={()=>{expJSON();setMenuOpen(false);}}><span className="ic">💾</span>ייצוא גיבוי (JSON)</button>
+                  <button className="menu-item" onClick={()=>{setMenuOpen(false);doBackup();}}><span className="ic">💾</span>גיבוי מלא (ZIP)</button>
                   <label className="menu-item" style={{cursor:'pointer'}}>
-                    <span className="ic">📂</span>ייבוא גיבוי (JSON)
-                    <input type="file" accept=".json" onChange={e=>{impFile(e);setMenuOpen(false);}} style={{display:'none'}}/>
+                    <span className="ic">♻️</span>שחזור מגיבוי
+                    <input type="file" accept=".zip,.json" onChange={e=>{setMenuOpen(false);doRestore(e);}} style={{display:'none'}}/>
                   </label>
                 </>}
 
