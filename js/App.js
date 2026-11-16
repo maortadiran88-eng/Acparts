@@ -644,6 +644,8 @@ function App() {
 
           <div style={{flex:1}}/>
 
+          {sel&&<button onClick={goHome} className="hdr-btn tt tt-hdr" data-tt="מסך הבית" aria-label="מסך הבית">🏠</button>}
+          {sel&&<button onClick={goBack} className="hdr-btn tt tt-hdr" data-tt="חזור אחורה" aria-label="חזור אחורה">→</button>}
           {sel&&(
             <button onClick={()=>setSearchOpen(v=>!v)} className={'hdr-btn tt tt-hdr'+(searchOpen?' on':'')} data-tt="חיפוש">🔍</button>
           )}
