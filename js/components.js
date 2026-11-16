@@ -162,6 +162,15 @@ function HomeScreen({data,onNav,recent,favorites,onToggleFav,loginRole,reports,t
         </div>
       </div>
 
+      {/* ── קטלוג מזגנים 2026 (נפתח בלשונית חדשה) ── */}
+      <Reveal style={{marginBottom:26,textAlign:'center'}}>
+        <a href="https://online.anyflip.com/uzme/xmhh/mobile/index.html" target="_blank" rel="noopener noreferrer"
+          style={{display:'inline-flex',alignItems:'center',gap:12,padding:'14px 30px',borderRadius:'var(--radius-md)',background:'var(--primary)',color:'#fff',fontWeight:800,fontSize:16,textDecoration:'none',boxShadow:'0 6px 18px var(--cyan-glow)',maxWidth:'100%'}}>
+          <span style={{fontSize:22}}>📖</span>
+          <span>קטלוג מזגנים 2026</span>
+          <span style={{fontSize:13,opacity:.8}}>↗</span>
+        </a>
+      </Reveal>
       {/* ── BRAND BENTO GRID ── */}
       <Reveal style={{marginBottom:30}}>
         <div className="tc-sub-title" style={{textAlign:'center',marginBottom:14}}>או בחר שנתון</div>
