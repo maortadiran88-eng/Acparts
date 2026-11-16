@@ -1,5 +1,5 @@
-const { useState, useEffect, useMemo, useRef } = React;
 
+const { useState, useEffect, useMemo, useRef } = React;
 // מזיז פריט (לפי id) מקום אחד למעלה (dir=-1) או למטה (dir=1) ברשימה. בקצה הרשימה לא קורה כלום
 const moveById = (arr, id, dir) => {
   const i = (arr||[]).findIndex(x => x.id === id), j = i + dir;
@@ -7,7 +7,6 @@ const moveById = (arr, id, dir) => {
   const n = arr.slice(); [n[i], n[j]] = [n[j], n[i]];
   return n;
 };
-
 function App() {
   const [data,           setData]           = useState(null);
   const [loaded,         setLoaded]         = useState(false);
@@ -74,7 +73,6 @@ function App() {
     try { return JSON.parse(localStorage.getItem('ac_recent')||'[]'); } catch { return []; }
   });
   const [now, setNow] = useState(new Date());
-
   const saveTimer    = useRef(null);
   const firstLoad    = useRef(true);
   const changedMids  = useRef(new Set());
@@ -88,14 +86,11 @@ function App() {
   const latestSeq    = useRef(0);
   const latestData   = useRef(null);
   const retryTimer   = useRef(null);
-
   const admin  = loginRole==='admin';
   const editor = loginRole==='editor' || loginRole==='admin';
   const viewer = loginRole==='viewer';
-
   useEffect(() => { document.documentElement.className=dark?'dark':''; document.body.style.background='var(--bg)'; }, [dark]);
   useEffect(() => { const t=setInterval(()=>setNow(new Date()),1000); return()=>clearInterval(t); }, []);
-
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -120,7 +115,6 @@ function App() {
     window.addEventListener('sb-expired', onExpired);
     return () => { alive = false; window.removeEventListener('sb-expired', onExpired); };
   }, []);
-
   // Load alerts/reports when editor logs in
   useEffect(() => {
     if (!loginRole) return;
@@ -133,7 +127,6 @@ function App() {
     }
     if (admin) fbTrashList().then(l => setTrashCount(l.length)).catch(()=>{});
   }, [loginRole]);
-
   // Single-flight autosave: only ONE fbSave may be in flight at a time. If the
   // network/backend is slow or backing off, further edits just flag "save
   // again" instead of stacking more (large) writes onto Firestore's write
@@ -182,7 +175,6 @@ function App() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(runSave, 2500);
   }, [data, loaded]);
-
   const missingAlerts = useMemo(() => {
     if (!data) return [];
     const res = [];
@@ -200,15 +192,12 @@ function App() {
     })));
     return res;
   }, [data]);
-
   const unresolvedCount = useMemo(() => reports.filter(r=>!r.resolved).length, [reports]);
   const unresolvedTech  = useMemo(() => techRequests.filter(r=>!r.resolved).length, [techRequests]);
   const notifCount      = unresolvedCount + missingAlerts.length + unresolvedTech;
-
   const brand = sel&&data ? data.brands.find(b=>b.id===sel.bid) : null;
   const cat   = brand     ? brand.categories.find(c=>c.id===sel.cid) : null;
   const model = cat       ? (cat.models.find(m=>m.id===sel.mid) || (cat.subCategories||[]).flatMap(sc=>sc.models).find(m=>m.id===sel.mid)) : null;
-
   const results = useMemo(() => {
     if (!data||!loginRole) return [];
     const q = query.trim().toLowerCase(); if (!q) return [];
@@ -229,7 +218,6 @@ function App() {
     });
     return res;
   }, [query, data, loginRole, editor]);
-
   const nav = (bid,cid,mid,hq='') => {
     if (sel) navStack.current = [...navStack.current.slice(-9), sel];
     setSel({bid,cid,mid,hq}); setQuery('');
@@ -248,12 +236,9 @@ function App() {
   };
   const goBack = () => { if(navStack.current.length>0){const p=navStack.current.pop();setSel(p);}else setSel(null); };
   const goHome = () => { setSel(null); setQuery(''); navStack.current=[]; };
-
   const mut  = fn => setData(d => fn(d));
   const mutM = (bid,cid,mid,fn) => { changedMids.current.add(mid); mut(d=>({...d,brands:updBrands(d.brands,bid,cid,mid,fn)})); };
-
   const logAction = (action, extra={}) => fbHist({action,...extra,role:loginRole,actor:loginLabel||loginRole});
-
   // Undo helper — stores up to 5 reversible snapshots in memory
   const pushUndo = (msg, restoreFn) => {
     setUndoStack(prev => {
@@ -266,7 +251,6 @@ function App() {
   const logAlert  = (type, text) => {
     fbLogAlert({type,text,actor:loginLabel||loginRole}).then(()=>fbGetAlerts().then(setAlerts));
   };
-
   // ══════════ סל מחזור: כל מחיקה של דגם / תת-קטגוריה / קטגוריה / מותג נשמרת קודם בסל ואפשר לשחזר אותה ══════════
   const nModelsCat   = c => c.models.length + (c.subCategories||[]).reduce((s,sc)=>s+sc.models.length,0);
   const nModelsBrand = b => b.categories.reduce((s,c)=>s+nModelsCat(c),0);
@@ -346,14 +330,12 @@ function App() {
     setBrandMgr(false);
     done.forEach((bundle,i) => pushUndo(`ביטול מחיקת מותג: ${removed[i].name}`, undoFromBundle(bundle)));
   };
-
   const toggleDark = () => setDark(v => { localStorage.setItem('ac_dark',v?'0':'1'); return !v; });
   const toggleFav  = mid => setFavorites(p => {
     const n=new Set(p); n.has(mid)?n.delete(mid):n.add(mid);
     try { localStorage.setItem('ac_fav',JSON.stringify([...n])); } catch {}
     return n;
   });
-
   const handleImgUpload = async (e,bid,cid,mid) => {
     const input = e.target, files = Array.from(input.files); if (!files.length) return;
     const good = [], bad = [];
@@ -366,7 +348,6 @@ function App() {
     if (good.length) mutM(bid,cid,mid, m=>({...m,images:[...(m.images||[]),...good]}));
     if (bad.length) alert((good.length ? 'חלק מהתמונות לא הועלו:' : 'התמונה לא הועלתה:') + '\n\n' + bad.join('\n'));
   };
-
   const addToCart = (bid,cid,mid,pid) => {
     if (cart.find(i=>i.mid===mid&&i.pid===pid)) { alert('כבר בסל'); return; }
     const b=data.brands.find(x=>x.id===bid),c=b?.categories.find(x=>x.id===cid),m=c?.models.find(x=>x.id===mid),p=m?.parts.find(x=>x.id===pid);
@@ -375,7 +356,6 @@ function App() {
   };
   const removeFromCart = id => setCart(p => p.filter(i=>i.id!==id));
   const clearCart      = ()  => setCart([]);
-
   const moveModel = (fBid,fCid,mid,toBid,toCid) => {
     let moved=null;
     mut(d => {
@@ -385,7 +365,6 @@ function App() {
     });
     changedMids.current.add(mid); setSel(s=>({...s,bid:toBid,cid:toCid}));
   };
-
   const bulkMoveModels = (sels,toBid,toCid) => {
     mut(d => {
       let moved=[];
@@ -396,11 +375,9 @@ function App() {
     sels.forEach(s=>changedMids.current.add(s.mid));
     logAction('העברה מרובה',{count:sels.length});
   };
-
   const bulkDeleteModels = async sels => {
     if(!confirm(`למחוק ${sels.length} דגמים?\nהם יישמרו בסל המחזור ואפשר יהיה לשחזר אותם.`))return;
     fbSaveSnapshot(data, loginLabel||loginRole, `לפני מחיקת ${sels.length} דגמים`);
-
     // כל דגם נשמר בסל המחזור לפני שנמחק. אם אחד נכשל: מבטלים הכול ולא נמחק שום דגם
     const items = [];
     sels.forEach(s => {
@@ -415,7 +392,6 @@ function App() {
       alert('המחיקה בוטלה ולא נמחק שום דגם, כי לא הצלחתי לשמור אותם בסל המחזור.\n\n'+trashLastErr.current);
       return;
     }
-
     // Build every Firestore operation (part-doc delete + alert log) up front,
     // then send them as chunked db.batch() writes instead of firing one
     // un-batched request per model — that per-model loop was what exhausted
@@ -439,12 +415,10 @@ function App() {
       }
       fbGetAlerts().then(setAlerts);
     } catch(e) { console.error('מחיקה מרובה — שגיאת כתיבה:', e); }
-
     mut(d=>({...d,brands:d.brands.map(b=>({...b,categories:b.categories.map(c=>({...c,models:c.models.filter(m=>!sels.some(s=>s.mid===m.id&&s.bid===b.id&&s.cid===c.id))}))}))}));
     if(sels.some(s=>s.mid===sel?.mid))setSel(null);
     logAction('מחיקה מרובה',{count:sels.length});
   };
-
   const duplicateModel = (bid,cid,mid) => {
     const orig=data.brands.find(b=>b.id===bid)?.categories.find(c=>c.id===cid)?.models.find(m=>m.id===mid);
     if(!orig)return;
@@ -452,14 +426,12 @@ function App() {
     const dup={...JSON.parse(JSON.stringify(orig)),id:newId,name:orig.name+' (עותק)',synonyms:[]};
     mut(d=>({...d,brands:d.brands.map(b=>b.id!==bid?b:{...b,categories:b.categories.map(c=>c.id!==cid?c:{...c,models:[...c.models,dup]})})}));
   };
-
   const copyPartsFrom = (sb,sc,sm,db2,dc,dm) => {
     const srcM=data.brands.find(b=>b.id===sb)?.categories.find(c=>c.id===sc)?.models.find(m=>m.id===sm);
     if(!srcM)return;
     changedMids.current.add(dm);
     mutM(db2,dc,dm,m=>({...m,parts:[...m.parts,...srcM.parts.map(p=>({...p,id:gid()}))]}));
   };
-
   const handleAddModel = (b,cid,name,scid) => {
     const id=gid(); changedMids.current.add(id);
     const nm={id,name,synonyms:[],images:[],notes:'',columns:DCOLS(),parts:[]};
@@ -472,7 +444,6 @@ function App() {
     logAlert('add', `נוסף דגם חדש: ${name} (${b.name})`);
     fbAddNews(`נוסף דגם חדש: ${name} (${b.name})`).then(()=>fbGetNews().then(docs=>setNewsItems(docs.map(d=>d.text))));
   };
-
   const importFromXls = (rows,colMap,tBid,tCid,excluded) => {
     const grouped={};
     rows.forEach(r=>{const mn=String(r[colMap.model]||'').trim();if(!mn||excluded.has(mn))return;if(!grouped[mn])grouped[mn]=[];grouped[mn].push(r);});
@@ -489,12 +460,10 @@ function App() {
     logAction('ייבוא Excel',{models:Object.keys(grouped).length,parts:total});
     return{models:Object.keys(grouped).length,parts:total};
   };
-
   const expXLS = () => {
     if(!data)return;
     try{
       const wb = XLSX.utils.book_new();
-
       // Build the full ordered set of column ids/names used anywhere in the catalog.
       // Defaults first (in their standard order, incl. the identification number "ref"),
       // then any extra custom columns editors have added, in first-seen order.
@@ -510,24 +479,19 @@ function App() {
       })));
       const colIds   = [...defaultOrder, ...extraIds];
       const colNames = colIds.map(id=>colNameMap[id]||id);
-
       const fixedHead = ['שם דגם','שמות נרדפים','הערות דגם','מספר שרטוטים/תמונות'];
       const allHeader = ['מותג','קטגוריה', ...fixedHead, ...colNames, 'נפוץ','סטטוס'];
       const allRows = [allHeader];
-
       // One sheet per BRAND
       data.brands.forEach(b => {
         const brandHeader = ['קטגוריה', ...fixedHead, ...colNames, 'נפוץ','סטטוס'];
         const brandRows = [brandHeader];
         let brandHasParts = false;
-
         b.categories.forEach(cat => {
           cat.models.forEach(m => {
             if(!m.parts.length) return;
             brandHasParts = true;
-
             const modelInfo = [m.name, (m.synonyms||[]).join(' | '), m.notes||'', (m.images||[]).length||0];
-
             m.parts.forEach(p => {
               const vals = colIds.map(id=>p.values[id]||'');
               brandRows.push([cat.name, ...modelInfo, ...vals, p.pinned?'נפוץ':'', p.discontinued ? 'הופסק לייצור' : '']);
@@ -535,26 +499,20 @@ function App() {
             });
           });
         });
-
         if(!brandHasParts) return; // skip brand with no parts
-
         const ws = XLSX.utils.aoa_to_sheet(brandRows);
         ws['!cols'] = brandHeader.map(()=>({wch:18}));
-
         const sheetName = b.name.replace(/[\/:*?\[\]]/g,'').slice(0,31);
         try { XLSX.utils.book_append_sheet(wb, ws, sheetName); }
         catch  { XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0,25)+gid().slice(0,5)); }
       });
-
       // Final sheet — all data
       const wsAll = XLSX.utils.aoa_to_sheet(allRows);
       wsAll['!cols'] = allHeader.map(()=>({wch:18}));
       XLSX.utils.book_append_sheet(wb, wsAll, 'כל הנתונים');
-
       XLSX.writeFile(wb, `ac-catalog-${new Date().toISOString().slice(0,10)}.xlsx`);
     } catch(err) { alert('שגיאה בייצוא Excel: '+err.message); console.error(err); }
   };
-
   const expJSON = async () => {
     let out = data;
     try {
@@ -573,7 +531,6 @@ function App() {
     a.download=`ac-backup-${new Date().toISOString().slice(0,10)}.json`;
     a.click();
   };
-
   const doBackup = async () => {
     if (bkBusy) return;
     setBkBusy('מתחיל גיבוי...');
@@ -598,14 +555,12 @@ function App() {
     } catch(e) { alert('❌ השחזור לא בוצע, הקטלוג לא שונה.\n\n'+(e.message||e)); console.error(e); }
     finally { setBkBusy(''); }
   };
-
   const impFile = e => {
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
     r.onload=ev=>{try{const d=JSON.parse(ev.target.result);delete d.users;delete d.pass;delete d.editorPass;delete d.viewerPass;d.brands?.forEach(b=>b.categories?.forEach(c=>c.models?.forEach(m=>changedMids.current.add(m.id))));setData(d);setSel(null);alert('✅ נטען');}catch{alert('❌ שגיאה');}};
     r.readAsText(f);e.target.value='';
   };
-
   if (!loaded) return(
     <div className="login-bg" style={{position:'fixed',inset:0,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',direction:'rtl'}}>
       <div aria-hidden className="login-blob-a" style={{position:'absolute',width:280,height:280,borderRadius:'50%',filter:'blur(70px)',opacity:.5,top:-70,right:-60}}/>
@@ -619,7 +574,6 @@ function App() {
       </div>
     </div>
   );
-
   const handleLogin = async (role,id,label) => {
     setLoaded(false);
     try {
@@ -632,11 +586,9 @@ function App() {
     }
   };
   if (!loginRole) return <LoginScreen data={data} onLogin={handleLogin}/>;
-
   const hdrBg = brand?.color || 'var(--primary)';
   const tips  = data.tips&&data.tips.length ? data.tips : DEFAULT_TIPS;
   const partsDisclaimer = data.partsDisclaimer || DEFAULT_DISCLAIMER;
-
   const openNotif = (tab='missing') => {
     setNotifInitTab(tab);
     setShowNotif(true);
@@ -644,18 +596,14 @@ function App() {
     fbGetTechRequests().then(setTechRequests);
     fbGetAlerts().then(setAlerts);
   };
-
   return(
     <div dir="rtl" style={{fontFamily:"'Rubik','Segoe UI',Arial,sans-serif",position:'relative',minHeight:'100vh',background:'var(--bg)',fontSize:14,color:'var(--text)'}}>
       <AirParticles/>
       <div style={{position:'relative',zIndex:1,display:'flex',flexDirection:'column',minHeight:'100vh',animation:'fadeIn .6s ease-out'}}>
-
       {/* Broadcast */}
       {broadcast && <BroadcastBanner msg={broadcast} onDismiss={()=>setBroadcast(null)}/>}
-
       {/* HEADER */}
       <header ref={headerRef} className="glass" style={{color:'var(--text)',borderBottom:`3px solid ${hdrBg}`,boxShadow:'0 3px 16px var(--shadow)',position:'sticky',top:0,zIndex:200,transition:'border-color .3s'}}>
-
         {/* Row 1 — minimized: identity + search toggle + one consolidated menu */}
         <div style={{padding:'9px 12px',display:'flex',alignItems:'center',gap:10}}>
           <button onClick={()=>setSidebar(v=>!v)} className="hdr-btn tt tt-hdr" data-tt="פתח/סגור תפריט צד">☰</button>
@@ -674,15 +622,12 @@ function App() {
           {saving==='saving'&&<span className="tt tt-hdr" data-tt="שומר..." style={{fontSize:11,flexShrink:0}}>💾</span>}
           {saving==='saved' &&<span className="tt tt-hdr" data-tt="נשמר" style={{fontSize:11,color:'var(--green)',flexShrink:0}}>✓</span>}
           {saving==='error' &&<button onClick={()=>{alert('שגיאת שמירה: '+saveErr);runSave();}} style={{fontSize:11,color:'#fff',background:'var(--red)',border:'none',borderRadius:5,padding:'3px 7px',cursor:'pointer',flexShrink:0}}>⚠</button>}
-
           <div style={{flex:1}}/>
-
           {sel&&<button onClick={goHome} className="hdr-btn tt tt-hdr" data-tt="מסך הבית" aria-label="מסך הבית">🏠</button>}
           {sel&&<button onClick={goBack} className="hdr-btn tt tt-hdr" data-tt="חזור אחורה" aria-label="חזור אחורה">→</button>}
           {sel&&(
             <button onClick={()=>setSearchOpen(v=>!v)} className={'hdr-btn tt tt-hdr'+(searchOpen?' on':'')} data-tt="חיפוש">🔍</button>
           )}
-
           <div className="menu-wrap">
             <button onClick={()=>setMenuOpen(v=>!v)} className={'hdr-btn tt tt-hdr'+(menuOpen?' on':'')} data-tt="תפריט">⋮</button>
             {menuOpen&&<>
@@ -695,14 +640,13 @@ function App() {
                 <button className="menu-item" onClick={()=>{setShowHelp(true);setMenuOpen(false);}}><span className="ic">❓</span>מדריך שימוש</button>
                 {editor&&<button className="menu-item" onClick={()=>{openNotif();setMenuOpen(false);}}><span className="ic">🔔</span>התראות{notifCount>0&&<span className="tc-meta" style={{marginRight:'auto'}}>({notifCount})</span>}</button>}
                 <button className="menu-item" onClick={()=>{toggleDark();}}><span className="ic">{dark?'☀️':'🌙'}</span>{dark?'מצב בהיר':'מצב כהה'}</button>
-
                 {editor&&<div className="menu-divider"/>}
                 {admin&&<button className="menu-item" onClick={()=>{setShowMakatReview(true);setMenuOpen(false);}}><span className="ic">✅</span>בדיקת מק"טים</button>}
                 {editor&&<button className="menu-item" onClick={()=>{setShowXls(true);setMenuOpen(false);}}><span className="ic">📥</span>ייבוא מ-Excel</button>}
+                {editor&&<button className="menu-item" onClick={()=>{setMenuOpen(false);doBackup();}}><span className="ic">💾</span>גיבוי מלא (ZIP)</button>}
                 {editor&&!admin&&<button className="menu-item" onClick={()=>{setShowNewsEditor(true);setMenuOpen(false);}}><span className="ic">📰</span>עריכת חדשות</button>}
                 {editor&&!admin&&<button className="menu-item" onClick={()=>{setShowBroadcast(true);setMenuOpen(false);}}><span className="ic">📢</span>שליחת הודעת מערכת</button>}
                 {editor&&!admin&&<button className="menu-item" onClick={()=>{setShowDashboard(true);setMenuOpen(false);}}><span className="ic">📊</span>דשבורד</button>}
-
                 {admin&&<>
                   <div className="menu-divider"/>
                   <button className="menu-item" onClick={()=>{setBrandMgr(true);setMenuOpen(false);}}><span className="ic">⚙</span>ניהול מותגים</button>
@@ -719,7 +663,6 @@ function App() {
                   <button className="menu-item danger" onClick={()=>{setShowBulkDel(true);setMenuOpen(false);}}><span className="ic">🗑</span>מחיקה גורפת</button>
                   <div className="menu-divider"/>
                   <button className="menu-item" onClick={()=>{expXLS();setMenuOpen(false);}}><span className="ic">📊</span>ייצוא ל-Excel</button>
-                  <button className="menu-item" onClick={()=>{setMenuOpen(false);doBackup();}}><span className="ic">💾</span>גיבוי מלא (ZIP)</button>
                   <label className="menu-item" style={{cursor:'pointer'}}>
                     <span className="ic">♻️</span>שחזור מגיבוי
                     <input type="file" accept=".zip,.json" onChange={e=>{setMenuOpen(false);doRestore(e);}} style={{display:'none'}}/>
@@ -729,14 +672,12 @@ function App() {
                     <input type="file" webkitdirectory="" directory="" multiple onChange={e=>{setMenuOpen(false);doRestore(e);}} style={{display:'none'}}/>
                   </label>
                 </>}
-
                 <div className="menu-divider"/>
                 <button className="menu-item danger" onClick={async()=>{setMenuOpen(false);await SB.logout();location.reload();}}><span className="ic">⬤</span>יציאה מהמערכת</button>
               </div>
             </>}
           </div>
         </div>
-
         {/* Row 2 — compact search, revealed via the 🔍 toggle (Home has its own hero search) */}
         {sel&&(
           <div style={{position:'relative'}}>
@@ -755,13 +696,10 @@ function App() {
           </div>
         )}
       </header>
-
       {/* News Ticker — below header */}
       <NewsTicker items={newsItems}/>
-
       {/* Tips — below news ticker */}
       <TipsBar tips={tips} canEdit={editor} onEdit={()=>setShowTipsEdit(true)}/>
-
       {/* Breadcrumb — always know where you are */}
       {model&&(
         <div style={{background:'var(--card)',borderBottom:'1px solid var(--border)',padding:'9px 14px'}}>
@@ -777,10 +715,8 @@ function App() {
           </div>
         </div>
       )}
-
       {/* BODY */}
       <div style={{display:'flex',flex:1,overflow:'hidden',height:'calc(100vh - 56px)'}}>
-
         {/* SIDEBAR */}
         <aside style={{width:sidebar?265:0,flexShrink:0,overflow:'hidden',transition:'width .25s',background:'var(--glass-bg)',backdropFilter:'blur(16px) saturate(160%)',WebkitBackdropFilter:'blur(16px) saturate(160%)',borderLeft:'1px solid var(--border)'}}>
           <div style={{width:265,overflowY:'auto',height:'100%',display:'flex',flexDirection:'column'}}>
@@ -881,10 +817,8 @@ function App() {
                 />
               ))}
             </div>
-
           </div>
         </aside>
-
         {/* MAIN */}
         <main style={{flex:1,overflowY:'auto',padding:14,paddingBottom:44}}>
           {!model
@@ -944,10 +878,7 @@ function App() {
           }
         </main>
       </div>
-
-
       {imgBusy&&<div role="status" style={{position:'fixed',bottom:16,left:'50%',transform:'translateX(-50%)',zIndex:950,background:'var(--text)',color:'var(--card)',padding:'9px 18px',borderRadius:22,fontSize:13,fontWeight:700,boxShadow:'0 4px 16px rgba(0,0,0,.3)'}}>⏳ {imgBusy}</div>}
-
       {/* IMAGE MODAL */}
       {imgModal.imgs.length>0&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.93)',zIndex:900,display:'flex',flexDirection:'column'}} onClick={()=>setImgModal({imgs:[],idx:0})}>
@@ -973,7 +904,6 @@ function App() {
           </div>
         </div>
       )}
-
       {/* PANELS */}
       {showCart     &&<CartPanel cart={cart} data={data} onRemove={removeFromCart} onClear={clearCart} onClose={()=>setShowCart(false)} waDefaults={data.waDefaults||['nameHe','tadPn']}/>}
       {showCompare  &&<ComparePanel compareList={compareList} data={data} onClose={()=>setShowCompare(false)} onRemove={mid=>setCompareList(p=>p.filter(x=>x.mid!==mid))}/>}
@@ -996,7 +926,6 @@ function App() {
       {showNewsEditor&&<NewsEditorModal onClose={()=>{setShowNewsEditor(false);fbGetNews().then(docs=>setNewsItems(docs.map(d=>d.text)));}}/>}
       {showBroadcast&&<BroadcastModal currentMsg={data.systemMsg||''} onClose={()=>setShowBroadcast(false)}/>}
       {showUsersMgr &&<UsersManagerModal data={data} onSave={users=>{mut(d=>({...d,users}));setShowUsersMgr(false);alert('✅ המשתמשים עודכנו');}} onClose={()=>setShowUsersMgr(false)}/>}
-
       {showHistory&&(
         <Modal onClose={()=>setShowHistory(false)} title="📋 לוג פעילות" wide>
           <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center'}}>
@@ -1018,7 +947,6 @@ function App() {
           <button onClick={()=>setShowHistory(false)} style={{width:'100%',marginTop:14,...BST}}>סגור</button>
         </Modal>
       )}
-
       {showTipsEdit&&<TipsEditModal tips={tips} onSave={newTips=>{mut(d=>({...d,tips:newTips}));setShowTipsEdit(false);}} onClose={()=>setShowTipsEdit(false)}/>}
       {/* UNDO SNACKBAR */}
       {showUndo&&(
@@ -1028,7 +956,6 @@ function App() {
           <button onClick={()=>setShowUndo(null)} style={{background:'none',border:'none',color:'#aaa',cursor:'pointer',fontSize:16}}>✕</button>
         </div>
       )}
-
       {/* UNDO HISTORY BUTTON (for editor/admin) */}
       {undoStack.length>0&&!showUndo&&(
         <div style={{position:'fixed',bottom:40,left:16,zIndex:998}}>
@@ -1038,7 +965,6 @@ function App() {
           </button>
         </div>
       )}
-
       {chPwd    &&<ChangePwd   data={data} onSave={d=>{mut(()=>({...d}));setChPwd(false);alert('✅ נשמר');}} onClose={()=>setChPwd(false)}/>}
       {brandMgr &&<BrandMgr   data={data} onSave={saveBrandMgr} onClose={()=>setBrandMgr(false)}/>}
       {showTrash&&admin&&<TrashModal onClose={()=>setShowTrash(false)} loadList={fbTrashList} isPending={tid=>pendingTrash.current.some(p=>p.meta.tid===tid)} hasPending={()=>pendingTrash.current.length>0}
@@ -1052,5 +978,4 @@ function App() {
     </div>
   );
 }
-
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
